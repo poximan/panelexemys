@@ -1,7 +1,7 @@
 # entorno de ejecucion
 venv/
 
-# para que es esto
+# compilador bytecode
 __pycache__/
 
 # base de datos
