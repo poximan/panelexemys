@@ -1,0 +1,8 @@
+# entorno de ejecucion
+venv/
+
+# para que es esto
+__pycache__/
+
+# base de datos
+data/grdconectados.db
