@@ -29,7 +29,7 @@ def get_reles_micom_layout():
 
         html.Div("Este es un panel de ejemplo para Relés MiCOM.", style={'padding': '20px', 'border': '1px dashed #ccc', 'margin-top': '20px'})
         # Puedes añadir más componentes Dash aquí: dcc.Graph, dash_table.DataTable, dcc.Input, etc.
-    ], className='main-container')
+    ])
 
 # --- Registro de Callbacks ---
 

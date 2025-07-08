@@ -18,14 +18,6 @@
     /* Sutil sombra a toda la app */
 }
 
-.main-container {
-    /* Ahora este será el contenedor para el contenido de CADA PÁGINA */
-    padding: 20px;
-    /* Padding interno para el contenido de la página */
-    /* max-width: 1200px; -- Ya no es necesario aquí, lo maneja .main-app-container */
-    /* margin: 0 auto; -- Ya no es necesario aquí, lo maneja .main-app-container */
-}
-
 .main-title {
     text-align: center;
     color: #2c3e50;
