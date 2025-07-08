@@ -14,8 +14,8 @@ class GrdMiddlewareClient:
         self.default_unit_id = default_unit_id
         self.register_count = register_count
         self.refresh_interval = refresh_interval
-        self._active_grd_data = None # Caché de GRDs activos
-        self._last_grd_data_refresh = 0 # Tiempo del último refresh
+        self._active_grd_data = None        # Caché de GRDs activos
+        self._last_grd_data_refresh = 0     # Tiempo del último refresh
 
     def _refresh_grd_data(self):
         """Refresca la lista de GRDs activos desde la base de datos."""
@@ -75,7 +75,7 @@ class GrdMiddlewareClient:
                 latest_value_in_db_for_grd = dao.get_latest_connected_state_for_grd(grd_id)
 
                 if current_connected_value != latest_value_in_db_for_grd:
-                    print(f"¡Cambio detectado para GRD_ID {grd_id} ({grd_description}): observado (MB) {current_connected_value}, anterior (BD): {latest_value_in_db_for_grd}. Actualizando.")
+                    print(f"Cambio detectado para GRD_ID {grd_id} ({grd_description}): observado (MB) {current_connected_value}, anterior (BD): {latest_value_in_db_for_grd}. Actualizando.")
                     dao.insert_historico_reading(grd_id, timestamp_now, current_connected_value)             
 
             time.sleep(self.refresh_interval)

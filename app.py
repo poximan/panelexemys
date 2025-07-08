@@ -52,7 +52,7 @@ if __name__ == '__main__':
             print("POBLAR_BD es False. No se poblara la base de datos con datos de ejemplo.")
         
         # larnzar el orquestador modbus
-        print("Lanzando el orquestador Modbus (nueva arquitectura) en un hilo separado...")
+        print("Lanzando el orquestador Modbus en un hilo separado...")
         modbus_orchestrator_thread = threading.Thread(target=start_modbus_orchestrator)
         modbus_orchestrator_thread.daemon = True # Permite que el hilo termine si el programa principal lo hace
         modbus_orchestrator_thread.start()

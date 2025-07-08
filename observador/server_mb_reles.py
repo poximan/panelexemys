@@ -1,5 +1,5 @@
 import time
-from .modbus_driver import ModbusTcpDriver # ImportaciÃ³n relativa
+from .modbus_driver import ModbusTcpDriver # Importacion relativa
 from modelo.registro_falla import RegistroFalla
 import config
 
@@ -10,11 +10,11 @@ class ProtectionRelayClient:
     """
     def __init__(self, modbus_driver: ModbusTcpDriver, refresh_interval: int):
         """
-        Inicializa el cliente de relÃ©s de proteccion.
+        Inicializa el cliente de reles de proteccion.
 
         Args:
             modbus_driver (ModbusTcpDriver): Instancia del driver Modbus compartido.
-            refresh_interval (int): Intervalo de tiempo en segundos para el monitoreo de relÃ©s.
+            refresh_interval (int): Intervalo de tiempo en segundos para el monitoreo de reles.
         """
         self.driver = modbus_driver
         self.refresh_interval = refresh_interval
@@ -42,22 +42,22 @@ class ProtectionRelayClient:
         La direccion 0x3700 (14080 decimal) y la cantidad de registros (15)
 
         Args:
-            relay_id (int): El Unit ID del relÃ© a leer.
+            relay_id (int): El Unit ID del rele a leer.
 
         Returns:
             list[int]: Lista de valores de los registros leido, o None en caso de fallo.
         """
-        # DirecciÃ³n de los registros de estado del relÃ© (offset 0x3700)
+        # Direccion de los registros de estado del rele (offset 0x3700)
         # Convertimos '3700' hexadecimal a su valor entero decimal: 14080
         status_address = int('3700', 16) 
-        num_registers = 15 # Cantidad de registros a leer, segÃºn documentaciÃ³n del relÃ©
+        num_registers = 15 # Cantidad de registros a leer, segun documentacion del rele
 
-        print(f"Relay Client: Leyendo estado de RelÃ© (Unit ID: {relay_id}) en Addr {hex(status_address)} (Decimal: {status_address})...")
+        print(f"Relay Client: Leyendo estado de Rele (Unit ID: {relay_id}) en Addr {hex(status_address)} (Decimal: {status_address})...")
         registers = self.driver.read_holding_registers(status_address, num_registers, unit_id=relay_id)
         
         if registers:
             try:
-                # Â¡AquÃ­ creamos la instancia de RegistroFalla!
+                # ¡Aqui creamos la instancia de RegistroFalla!
                 registro_falla = RegistroFalla(registers)
                 print(f"Relay Client: Falla decodificada para Rele (Unit ID {relay_id}):")
                 print(f"   Numero de Falla: {registro_falla.fault_number}")
@@ -65,12 +65,12 @@ class ProtectionRelayClient:
                 print(f"   Tipo de Falla: {registro_falla.fault_type}")
                 print(f"   Fases Intervinientes: {registro_falla.involved_phases_type}")
                 print(f"   Corriente Fase A: {registro_falla.current_phase_a}")
-                print(f"   Corriente Fase B: {registro_falla.current_phase_b}") # <-- PodrÃ­as aÃ±adir mÃ¡s aquÃ­
-                print(f"   Corriente Fase C: {registro_falla.current_phase_c}") # <-- MÃ¡s impresiones
-                print(f"   Corriente Tierra: {registro_falla.earth_current}")   # <-- MÃ¡s impresiones
+                print(f"   Corriente Fase B: {registro_falla.current_phase_b}") # <-- Podrias añadir mas aqui
+                print(f"   Corriente Fase C: {registro_falla.current_phase_c}") # <-- Mas impresiones
+                print(f"   Corriente Tierra: {registro_falla.earth_current}")   # <-- Mas impresiones
                 print(f"   Reconocida: {registro_falla.recognized}")
                 # *** INICIO DE LAS POSIBLES MODIFICACIONES/ADICIONES ***
-                if registro_falla.fault_datetime: # Solo si la fecha es vÃ¡lida
+                if registro_falla.fault_datetime: # Solo si la fecha es valida
                     print(f"   Dia de la Semana: {registro_falla.fault_day_of_week}")
                     print(f"   Temporada: {registro_falla.fault_season}")
                     print(f"   Validez Fecha: {registro_falla.fault_date_validity}")
@@ -93,27 +93,27 @@ class ProtectionRelayClient:
         print(f"Iniciando monitoreo de Reles de Proteccion (Host: {self.driver.host}:{self.driver.port}, Intervalo: {self.refresh_interval}s)...")
         
         while True:
-            # Intenta conectar el driver Modbus si no estÃ¡ conectado.
-            # No se intenta reconectar si ya estÃ¡ conectado.
+            # Intenta conectar el driver Modbus si no esta conectado.
+            # No se intenta reconectar si ya esta conectado.
             if not self.driver.is_connected():
                 if not self.driver.connect():
                     print("Relay Client: No se pudo establecer conexion con el servidor Modbus. Reintentando en el proximo ciclo.")
                     time.sleep(self.refresh_interval)
-                    continue # Vuelve al inicio del bucle para reintentar la conexiÃ³n
+                    continue # Vuelve al inicio del bucle para reintentar la conexion
 
-            # Si la lista de relÃ©s estÃ¡ vacÃ­a (por ejemplo, despuÃ©s del filtrado 'NO APLICA'),
+            # Si la lista de reles esta vacia (por ejemplo, despues del filtrado 'NO APLICA'),
             # el cliente espera sin intentar lecturas.
             if not self.relay_unit_ids:
                 print("Relay Client: No hay reles activos para monitorear. Esperando...")
                 time.sleep(self.refresh_interval)
-                continue # Vuelve al inicio del bucle para revisar mÃ¡s tarde
+                continue # Vuelve al inicio del bucle para revisar mas tarde
 
-            # Itera sobre cada relÃ© activo y lee su estado
+            # Itera sobre cada rele activo y lee su estado
             for relay_id in self.relay_unit_ids:
                 print(f"Controlando rele {relay_id}")
                 self.read_relay_status(relay_id)
-                # AquÃ­ podrÃ­as aÃ±adir lÃ³gica adicional basada en el estado leÃ­do,
-                # como enviar alertas, actualizar una base de datos especÃ­fica de relÃ©s, etc.
+                # Aqui podrias añadir logica adicional basada en el estado leido,
+                # como enviar alertas, actualizar una base de datos especifica de reles, etc.
             
             # Espera el intervalo definido antes de la siguiente ronda de monitoreo
             time.sleep(self.refresh_interval)

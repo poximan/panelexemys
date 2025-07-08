@@ -1,7 +1,7 @@
 import threading
 from .modbus_driver import ModbusTcpDriver
-from .grd_middleware_client import GrdMiddlewareClient
-from .protection_relay_client import ProtectionRelayClient
+from .server_mb_middleware import GrdMiddlewareClient
+from .server_mb_reles import ProtectionRelayClient
 import config
 
 def start_modbus_orchestrator():
@@ -34,9 +34,9 @@ def start_modbus_orchestrator():
     # --- 4. Iniciar los bucles de observacion en hilos separados ---
     print("Lanzando observadores en hilos separados...")
     grd_thread = threading.Thread(target=grd_client.start_observer_loop, daemon=True)
-    #relay_thread = threading.Thread(target=protection_relay_client.start_monitoring_loop, daemon=True)
+    relay_thread = threading.Thread(target=protection_relay_client.start_monitoring_loop, daemon=True)
 
     grd_thread.start()
-    #relay_thread.start()    
+    relay_thread.start()    
     
     print("Orquestador Modbus iniciado y hilos lanzados.")

@@ -4,7 +4,7 @@ from datetime import datetime
 
 class RegistroFalla:
     """
-    Representa un registro de falla decodificado de una lectura Modbus de un relÃ©,
+    Representa un registro de falla decodificado de una lectura Modbus de un rele,
     siguiendo el formato de fecha/hora IEC 870 detallado.
     """
     def __init__(self, raw_registers: list[int]):
@@ -13,7 +13,7 @@ class RegistroFalla:
 
         Args:
             raw_registers (list[int]): Una lista de 15 enteros (palabras Modbus)
-                                       leÃ­dos directamente del relÃ©.
+                                         leidos directamente del rele.
         Raises:
             ValueError: Si la lista de registros no tiene la longitud esperada (15).
         """
@@ -30,52 +30,52 @@ class RegistroFalla:
         """
         self.fault_number: int = self._raw_registers[0]
 
-        # Mapeo de los registros brutos a las palabras Modbus segÃºn la direcciÃ³n hex
+        # Mapeo de los registros brutos a las palabras Modbus segun la direccion hex
         # Asumimos que raw_registers[1] es 0x0800, raw_registers[2] es 0x0801, etc.
         word_0800 = self._raw_registers[1] 
         word_0801 = self._raw_registers[2] 
         word_0802 = self._raw_registers[3] 
         word_0803 = self._raw_registers[4] 
 
-        # --- Word 0800: AÃ±o (lÃ³gica compleja con byte alto y bajo) ---
+        # --- Word 0800: Año (logica compleja con byte alto y bajo) ---
         year_hi_byte = (word_0800 >> 8) & 0xFF # Byte alto de 0x0800
         year_lo_byte = word_0800 & 0xFF        # Byte bajo de 0x0800
 
         self.fault_year: int | None = None
-        # Si el byte alto estÃ¡ en el rango de los aÃ±os 19xx
+        # Si el byte alto esta en el rango de los años 19xx
         if 94 <= year_hi_byte <= 99:
             self.fault_year = 1900 + year_hi_byte
-        # Si el byte bajo (despuÃ©s de aplicar la mÃ¡scara 0x7F) estÃ¡ en el rango de los aÃ±os 20xx
+        # Si el byte bajo (despues de aplicar la mascara 0x7F) esta en el rango de los años 20xx
         elif 0 <= (year_lo_byte & 0x7F) <= 93:
             self.fault_year = 2000 + (year_lo_byte & 0x7F)
         else:
-            print(f"ADVERTENCIA: Formato de aÃ±o no reconocido en Word 0x0800 ({word_0800}). Byte Alto: {year_hi_byte}, Byte Bajo: {year_lo_byte}")
-            self.fault_year = None # AÃ±o invÃ¡lido o no decodificable
+            print(f"ADVERTENCIA: Formato de año no reconocido en Word 0x0800 ({word_0800}). Byte Alto: {year_hi_byte}, Byte Bajo: {year_lo_byte}")
+            self.fault_year = None # Año invalido o no decodificable
 
-        # --- Word 0801: Mes, DÃ­a de la Semana, DÃ­a del Mes ---
-        # Byte alto de 0x0801 contiene el Mes (mÃ¡scara 0x0F)
+        # --- Word 0801: Mes, Dia de la Semana, Dia del Mes ---
+        # Byte alto de 0x0801 contiene el Mes (mascara 0x0F)
         month_byte_hi = (word_0801 >> 8) & 0xFF
         self.fault_month: int = (month_byte_hi & 0x0F) 
 
-        # Byte bajo de 0x0801 contiene DÃ­a de la Semana (mÃ¡scara 0xE0) y DÃ­a del Mes (mÃ¡scara 0x1F)
+        # Byte bajo de 0x0801 contiene Dia de la Semana (mascara 0xE0) y Dia del Mes (mascara 0x1F)
         day_byte_lo = word_0801 & 0xFF
-        self.fault_day_of_week: int = ((day_byte_lo & 0xE0) >> 5) # Extrae bits 5-7 para DÃ­a de la Semana
-        self.fault_day: int = (day_byte_lo & 0x1F)               # Extrae bits 0-4 para DÃ­a del Mes
+        self.fault_day_of_week: int = ((day_byte_lo & 0xE0) >> 5) # Extrae bits 5-7 para Dia de la Semana
+        self.fault_day: int = (day_byte_lo & 0x1F)               # Extrae bits 0-4 para Dia del Mes
 
         # --- Word 0802: Temporada, Hora, Validez de Fecha, Minuto ---
-        # Byte alto de 0x0802 contiene Temporada (mÃ¡scara 0x80) y Hora (mÃ¡scara 0x1F)
+        # Byte alto de 0x0802 contiene Temporada (mascara 0x80) y Hora (mascara 0x1F)
         season_hour_byte_hi = (word_0802 >> 8) & 0xFF
         self.fault_season: int = ((season_hour_byte_hi & 0x80) >> 7) # Extrae bit 7 para Temporada
-        self.fault_hour: int = (season_hour_byte_hi & 0x1F)           # Extrae bits 0-4 para Hora
+        self.fault_hour: int = (season_hour_byte_hi & 0x1F)          # Extrae bits 0-4 para Hora
 
-        # Byte bajo de 0x0802 contiene Validez de Fecha (mÃ¡scara 0x80) y Minuto (mÃ¡scara 0x3F)
+        # Byte bajo de 0x0802 contiene Validez de Fecha (mascara 0x80) y Minuto (mascara 0x3F)
         validity_minute_byte_lo = word_0802 & 0xFF
         self.fault_date_validity: int = ((validity_minute_byte_lo & 0x80) >> 7) # Extrae bit 7 para Validez de Fecha
         self.fault_minute: int = (validity_minute_byte_lo & 0x3F)               # Extrae bits 0-5 para Minuto
 
         # --- Word 0803: Milisegundos (Ahora divididos en segundos y microsegundos) ---
         # El valor bruto de este registro representa los milisegundos totales desde el inicio del segundo
-        # hasta un mÃ¡ximo de 59999 (lo que abarca hasta 59.999 segundos).
+        # hasta un maximo de 59999 (lo que abarca hasta 59.999 segundos).
         self.fault_milliseconds_raw: int = word_0803 # Guarda el valor bruto si lo necesitas
 
         # Calcula los segundos enteros y los microsegundos restantes
@@ -84,21 +84,21 @@ class RegistroFalla:
 
         is_date_components_valid = True
 
-        # Validaciones de rango segÃºn la documentaciÃ³n y los lÃ­mites de datetime
+        # Validaciones de rango segun la documentacion y los limites de datetime
         if self.fault_year is None:
             is_date_components_valid = False 
         elif not (1994 <= self.fault_year <= 2093):
-            print(f"ADVERTENCIA: AÃ±o final fuera de rango (1994-2093): {self.fault_year}")
+            print(f"ADVERTENCIA: Año final fuera de rango (1994-2093): {self.fault_year}")
             is_date_components_valid = False
         
         if not (1 <= self.fault_month <= 12):
             print(f"ADVERTENCIA: Mes fuera de rango (1-12): {self.fault_month}")
             is_date_components_valid = False
         if not (1 <= self.fault_day <= 31):
-            print(f"ADVERTENCIA: DÃ­a del mes fuera de rango (1-31): {self.fault_day}")
+            print(f"ADVERTENCIA: Dia del mes fuera de rango (1-31): {self.fault_day}")
             is_date_components_valid = False
         if not (1 <= self.fault_day_of_week <= 7):
-            print(f"ADVERTENCIA: DÃ­a de la semana fuera de rango (1-7): {self.fault_day_of_week}")
+            print(f"ADVERTENCIA: Dia de la semana fuera de rango (1-7): {self.fault_day_of_week}")
             is_date_components_valid = False
         if not (0 <= self.fault_season <= 1):
             print(f"ADVERTENCIA: Temporada fuera de rango (0-1): {self.fault_season}")
@@ -125,10 +125,10 @@ class RegistroFalla:
 
         self.fault_datetime: datetime | None = None
         if not is_date_components_valid or self.fault_year is None:
-             print("ERROR: Componentes de fecha/hora detectados como invÃ¡lidos. No se intentarÃ¡ crear objeto datetime.")
+               print("ERROR: Componentes de fecha/hora detectados como invalidos. No se intentara crear objeto datetime.")
         else:
             try:
-                # Nota: El objeto datetime de Python no usa directamente DÃ­a de la Semana, Temporada o Validez de Fecha.
+                # Nota: El objeto datetime de Python no usa directamente Dia de la Semana, Temporada o Validez de Fecha.
                 # Estos atributos se guardan por separado en el objeto RegistroFalla.
                 self.fault_datetime = datetime(
                     self.fault_year,
@@ -141,10 +141,10 @@ class RegistroFalla:
                 )
             except ValueError as e: 
                 print(f"Advertencia FINAL (ValueError al crear datetime): {e}")
-                print(f"Valores que causaron el error: AÃ±o={self.fault_year}, Mes={self.fault_month}, DÃ­a={self.fault_day}, Hora={self.fault_hour}, Minuto={self.fault_minute}, Segundo={self.fault_seconds}, Microsegundo={self.fault_microseconds}")
+                print(f"Valores que causaron el error: Año={self.fault_year}, Mes={self.fault_month}, Dia={self.fault_day}, Hora={self.fault_hour}, Minuto={self.fault_minute}, Segundo={self.fault_seconds}, Microsegundo={self.fault_microseconds}")
                 self.fault_datetime = None 
 
-        # --- Resto de los campos del registro de falla (Ãndices a partir del 5) ---
+        # --- Resto de los campos del registro de falla (Indices a partir del 5) ---
         self.ignored_word_6: int = self._raw_registers[5] 
         self.active_group: int = self._raw_registers[6]
         self.involved_phases_type: int = self._raw_registers[7]
@@ -157,7 +157,7 @@ class RegistroFalla:
         self.recognized: bool = bool(self._raw_registers[14])
 
     def __repr__(self):
-        """RepresentaciÃ³n para depuraciÃ³n."""
+        """Representacion para depuracion."""
         return (f"RegistroFalla(Numero={self.fault_number}, Fecha={self.fault_datetime}, "
                 f"Tipo={self.fault_type}, Fases={self.involved_phases_type}, "
                 f"IA={self.current_phase_a}, IB={self.current_phase_b}, IC={self.current_phase_c}, "
@@ -174,7 +174,7 @@ class RegistroFalla:
             "fault_day": self.fault_day,
             "fault_hour": self.fault_hour,
             "fault_minute": self.fault_minute,
-            "fault_seconds": self.fault_seconds,          # Nuevo campo
+            "fault_seconds": self.fault_seconds,           # Nuevo campo
             "fault_microseconds": self.fault_microseconds, # Nuevo campo
             "fault_milliseconds_raw": self.fault_milliseconds_raw, # Valor bruto original
             "fault_datetime": self.fault_datetime.isoformat() if self.fault_datetime else None,
