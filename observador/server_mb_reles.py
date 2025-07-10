@@ -26,6 +26,9 @@ class ProtectionRelayClient:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.observar_file_path = os.path.join(script_dir, 'observar.txt') # Ruta corregida
 
+        # Variable para almacenar el ultimo estado de observacion reportado
+        self._last_observing_status = None 
+
         if not self.relay_unit_ids:
             print("ADVERTENCIA (Relay Client): No se encontraron IDs de reles activos para monitorear en config.ESCLAVOS_MB. El cliente de reles estara inactivo.")
         else:
@@ -49,12 +52,12 @@ class ProtectionRelayClient:
         Maneja el caso de que el archivo no exista o haya errores de lectura.
         """
         if not os.path.exists(self.observar_file_path):
-            print(f"DEBUG: Archivo de observacion '{self.observar_file_path}' NO encontrado. Asumiendo OFF.")
+            # Si el archivo no existe, asumimos que la observacion esta deshabilitada.
             return False
         try:
             with open(self.observar_file_path, 'r') as f:
                 content = f.read().strip().lower()
-                is_enabled = (content == 'true')                
+                is_enabled = (content == 'true') 
                 return is_enabled
         except Exception as e:
             print(f"ERROR al leer el estado de observacion desde {self.observar_file_path}: {e}")
@@ -142,20 +145,31 @@ class ProtectionRelayClient:
         print(f"Iniciando monitoreo de Reles de Proteccion (Host: {self.driver.host}:{self.driver.port}, Intervalo: {self.refresh_interval}s)...")
         
         while True:
+            current_observing_status = self._is_observing_enabled()
+
+            # Solo imprime el mensaje de estado si ha cambiado
+            if current_observing_status != self._last_observing_status:
+                if not current_observing_status:
+                    print("Monitoreo de Reles MiCOM PAUSADO (observar.txt indica OFF).")
+                else:
+                    print("Monitoreo de Reles MiCOM REANUDADO (observar.txt indica ON).")
+                self._last_observing_status = current_observing_status
+
+            # Si la observacion esta deshabilitada, espera y continua al siguiente ciclo
+            if not current_observing_status:                
+                continue 
             
             # Intenta conectar el driver Modbus si no esta conectado.
             # No se intenta reconectar si ya esta conectado.
             if not self.driver.is_connected():
                 if not self.driver.connect():
-                    print("Relay Client: No se pudo establecer conexion con el servidor Modbus. Reintentando en el proximo ciclo.")
-                    time.sleep(self.refresh_interval)
+                    print("Relay Client: No se pudo establecer conexion con el servidor Modbus. Reintentando en el proximo ciclo.")                    
                     continue # Vuelve al inicio del bucle para reintentar la conexion
 
             # Si la lista de reles esta vacia (por ejemplo, despues del filtrado 'NO APLICA'),
             # el cliente espera sin intentar lecturas.
             if not self.relay_unit_ids:
-                print("Relay Client: No hay reles activos para monitorear. Esperando...")
-                time.sleep(self.refresh_interval)
+                print("Relay Client: No hay reles activos para monitorear. Esperando...")                
                 continue # Vuelve al inicio del bucle para revisar mas tarde
 
             # Itera sobre cada rele activo y lee su estado

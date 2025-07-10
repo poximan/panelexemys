@@ -12,8 +12,9 @@ db_lock = threading.Lock()
 
 def create_database_schema():
     """
-    Crea el directorio 'data' si no existe y las tablas 'grd' e 'historicos'
-    en la base de datos SQLite, incluyendo la clave foránea.
+    Crea el directorio 'data' si no existe y las tablas 'grd', 'historicos',
+    'mensajes_enviados', 'reles' y 'fallas_reles' en la base de datos SQLite,
+    incluyendo las claves foráneas.
     """
     if not os.path.exists(DATABASE_DIR):
         os.makedirs(DATABASE_DIR)
@@ -28,7 +29,7 @@ def create_database_schema():
             # Habilitar el soporte para claves foráneas
             cursor.execute("PRAGMA foreign_keys = ON;")
 
-            # 1. Crear la tabla 'grd'
+            # 1. Crear tabla 'grd'
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS grd (
                     id INTEGER PRIMARY KEY,
@@ -37,7 +38,7 @@ def create_database_schema():
             ''')
             print("Tabla 'grd' asegurada.")
 
-            # 2. Crear la tabla 'historicos' con la clave foránea
+            # 2. Crear tabla 'historicos' con la clave foránea
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS historicos (
                     timestamp TEXT NOT NULL,
@@ -48,6 +49,46 @@ def create_database_schema():
                 )
             ''')
             print("Tabla 'historicos' asegurada con clave foránea.")
+
+            # 3. Crear tabla 'mensajes_enviados'
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS mensajes_enviados (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    message_type TEXT, -- 'global_connectivity_alarm', 'individual_grd_alarm_X', etc.
+                    recipient TEXT,
+                    success INTEGER NOT NULL -- 1 para True, 0 para False
+                )
+            ''')
+            print("Tabla 'mensajes_enviados' asegurada.")
+
+            # 4. Crear tabla 'reles'
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS reles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_modbus INTEGER,
+                    descripcion TEXT
+                )
+            ''')
+            print("Tabla 'reles' asegurada.")
+
+            # 5. Crear tabla 'fallas_reles'
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS fallas_reles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    id_rele INTEGER NOT NULL,
+                    numero_falla INTEGER NOT NULL,
+                    timestamp DATETIME NOT NULL,
+                    fasea_corr INTEGER,
+                    faseb_corr INTEGER,
+                    fasec_corr INTEGER,
+                    tierra_corr INTEGER,
+                    FOREIGN KEY (id_rele) REFERENCES reles(id)
+                )
+            ''')
+            print("Tabla 'fallas_reles' asegurada con clave foránea.")
 
             conn.commit()
             print(f"Esquema de base de datos en {DATABASE_FILE} creado/asegurado.")

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Interactivo: Middleware Exemys</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Cielo Sereno (bg-slate-50, text-slate-800, bg-white, bg-sky-600, text-sky-500) -->
+    <!-- Application Structure Plan: A tabbed, single-page application structure is used to present the technical report in a more digestible, user-friendly format. Instead of a linear document, the content is organized into four main thematic sections: 'Arquitectura', 'Monitoreo', 'Alertas', and 'Interfaz'. This allows users to navigate directly to the area of interest. Interaction is centered around clicking components in diagrams to reveal detailed information, promoting exploration over passive reading. This structure is more aligned with how a developer or technical stakeholder would want to explore a system's documentation. -->
+    <!-- Visualization & Content Choices:
+        - Arquitectura: Goal: Organize. Method: Interactive diagram with HTML/CSS (grid/flex). Interaction: Click on component blocks to show/hide detail panels. Justification: Visually represents system structure and allows for progressive disclosure of information.
+        - Parámetros (IP, intervalos, etc.): Goal: Inform. Method: Styled cards (HTML/CSS). Justification: Clearly isolates and presents key configuration data.
+        - Lógica de Alarma: Goal: Organize. Method: Flowchart using HTML/CSS. Justification: Simplifies the understanding of complex conditional logic.
+        - KPI "Grado de Conectividad": Goal: Inform. Method: Gauge chart (Chart.js Canvas). Justification: Recreates a key visual from the source application to provide context.
+        - Historial de Conexión: Goal: Change. Method: Bar chart (Chart.js Canvas) simulating a timeline. Interaction: Tooltips on hover. Justification: Provides an interactive example of the data visualization in the real application.
+        - Estructura de Falla MiCOM: Goal: Organize. Method: Styled list (HTML/CSS). Justification: Clearly breaks down the complex data structure of a fault record.
+        CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            /* bg-slate-50 */
+            color: #1e293b;
+            /* text-slate-800 */
+        }
+
+        .nav-link {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-link.active {
+            color: #0284c7;
+            /* text-sky-600 */
+            border-bottom: 2px solid #0284c7;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .diagram-item {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .diagram-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        .detail-panel {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <div class="min-h-screen">
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <h1 class="text-3xl font-bold leading-tight text-slate-900">Informe Interactivo: Middleware Exemys</h1>
+                <p class="mt-2 text-slate-600">Una exploración visual de la arquitectura, componentes y funcionalidades
+                    de la plataforma de monitoreo.</p>
+            </div>
+        </header>
+
+        <main class="py-10">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <!-- Navigation -->
+                <div class="border-b border-slate-200">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <a id="nav-arquitectura"
+                            class="nav-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Arquitectura del
+                            Sistema</a>
+                        <a id="nav-monitoreo"
+                            class="nav-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Monitoreo y
+                            Datos</a>
+                        <a id="nav-alertas"
+                            class="nav-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Alertas y
+                            Notificaciones</a>
+                        <a id="nav-interfaz"
+                            class="nav-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Interfaz de
+                            Usuario</a>
+                    </nav>
+                </div>
+
+                <!-- Content Sections -->
+                <div class="mt-8">
+                    <!-- Arquitectura Section -->
+                    <section id="content-arquitectura" class="content-section">
+                        <div class="bg-white p-8 rounded-lg shadow">
+                            <h2 class="text-2xl font-bold text-slate-900">Visión General de la Arquitectura</h2>
+                            <p class="mt-4 text-slate-600">La aplicación está diseñada con una arquitectura modular para
+                                garantizar la escalabilidad y mantenibilidad. Las operaciones de fondo, como la lectura
+                                de datos y el envío de alarmas, se ejecutan en hilos separados para no bloquear la
+                                interfaz de usuario, que es una Aplicación de Página Única (SPA) responsiva. Haz clic en
+                                cada componente del diagrama para ver más detalles.</p>
+
+                            <div class="mt-8 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                                <div class="md:col-span-8">
+                                    <div class="grid grid-cols-2 gap-4 text-center">
+                                        <div id="diag-dash"
+                                            class="diagram-item p-4 bg-sky-100 border border-sky-300 rounded-lg">
+                                            <span class="text-4xl">🖥️</span>
+                                            <h3 class="font-semibold text-sky-800 mt-2">Aplicación Dash</h3>
+                                            <p class="text-xs text-sky-600">app.py</p>
+                                        </div>
+                                        <div id="diag-observadores"
+                                            class="diagram-item p-4 bg-emerald-100 border border-emerald-300 rounded-lg">
+                                            <span class="text-4xl">🔍</span>
+                                            <h3 class="font-semibold text-emerald-800 mt-2">Observadores</h3>
+                                            <p class="text-xs text-emerald-600">observador/*.py</p>
+                                        </div>
+                                        <div id="diag-db"
+                                            class="diagram-item p-4 bg-amber-100 border border-amber-300 rounded-lg">
+                                            <span class="text-4xl">🗃️</span>
+                                            <h3 class="font-semibold text-amber-800 mt-2">Base de Datos</h3>
+                                            <p class="text-xs text-amber-600">persistencia/*.py</p>
+                                        </div>
+                                        <div id="diag-notificador"
+                                            class="diagram-item p-4 bg-rose-100 border border-rose-300 rounded-lg">
+                                            <span class="text-4xl">📧</span>
+                                            <h3 class="font-semibold text-rose-800 mt-2">Notificador</h3>
+                                            <p class="text-xs text-rose-600">notificador/*.py</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="detail-panel-container"
+                                    class="md:col-span-4 p-4 bg-slate-100 rounded-lg h-full">
+                                    <div id="detail-panel-initial" class="text-center text-slate-500">
+                                        <p>Selecciona un componente del diagrama para ver su descripción.</p>
+                                    </div>
+                                    <div id="detail-panel-dash" class="detail-panel">
+                                        <h3 class="font-bold text-lg text-sky-800">Aplicación Dash</h3>
+                                        <p class="mt-2 text-sm text-slate-700">El punto de entrada principal (`app.py`).
+                                            Configura el servidor web, la estructura de la SPA y lanza los hilos de los
+                                            observadores. La interfaz se construye con componentes modulares.</p>
+                                    </div>
+                                    <div id="detail-panel-observadores" class="detail-panel">
+                                        <h3 class="font-bold text-lg text-emerald-800">Observadores en Hilo</h3>
+                                        <p class="mt-2 text-sm text-slate-700">Las tareas de lectura Modbus y
+                                            verificación de alarmas se ejecutan en hilos (`threading.Thread`) para no
+                                            bloquear la aplicación principal. Están configurados como `daemon=True` para
+                                            terminar junto con el programa.</p>
+                                    </div>
+                                    <div id="detail-panel-db" class="detail-panel">
+                                        <h3 class="font-bold text-lg text-amber-800">Persistencia de Datos</h3>
+                                        <p class="mt-2 text-sm text-slate-700">Utiliza una base de datos SQLite
+                                            (`grdconectados.db`) para almacenar el historial de conectividad, las
+                                            descripciones de los dispositivos y un registro de los mensajes de alarma
+                                            enviados. La estructura se define mediante DAOs (Data Access Objects).</p>
+                                    </div>
+                                    <div id="detail-panel-notificador" class="detail-panel">
+                                        <h3 class="font-bold text-lg text-rose-800">Sistema de Notificación</h3>
+                                        <p class="mt-2 text-sm text-slate-700">Un módulo dedicado a enviar alarmas por
+                                            correo electrónico (`smtplib`) cuando se cumplen ciertas condiciones de
+                                            fallo de conectividad (global o individual), con umbrales y duraciones
+                                            configurables.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Monitoreo Section -->
+                    <section id="content-monitoreo" class="content-section">
+                        <div class="bg-white p-8 rounded-lg shadow">
+                            <h2 class="text-2xl font-bold text-slate-900">Monitoreo de Dispositivos</h2>
+                            <p class="mt-4 text-slate-600">El sistema monitorea activamente dos tipos de dispositivos a
+                                través de Modbus TCP: GRDs para estado de conectividad y relés MiCOM para registros de
+                                fallas. Cada tipo de monitoreo tiene su propia lógica de lectura y decodificación.</p>
+
+                            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <!-- GRD Monitoring -->
+                                <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                                    <h3 class="text-xl font-semibold text-slate-800">Monitoreo de GRD (Conectividad)
+                                    </h3>
+                                    <p class="mt-2 text-sm text-slate-600">Un cliente específico (`GrdMiddlewareClient`)
+                                        se conecta al servidor Modbus cada 30 segundos para leer el estado de los GRDs.
+                                    </p>
+                                    <ul class="mt-4 space-y-3 text-sm">
+                                        <li class="flex items-start"><span class="text-sky-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Objetivo:</span> Verificar si un
+                                                dispositivo está en línea.</div>
+                                        </li>
+                                        <li class="flex items-start"><span class="text-sky-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Método:</span> Lectura de 16 registros
+                                                Modbus. El estado se extrae del bit 0 del registro 16.</div>
+                                        </li>
+                                        <li class="flex items-start"><span class="text-sky-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Acción:</span> Si el estado cambia (ej. de
+                                                conectado a desconectado), se inserta un nuevo registro en la tabla
+                                                `historicos` de la base de datos para registrar el evento.</div>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <!-- MiCOM Relay Monitoring -->
+                                <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                                    <h3 class="text-xl font-semibold text-slate-800">Monitoreo de Relés MiCOM (Fallas)
+                                    </h3>
+                                    <p class="mt-2 text-sm text-slate-600">El `ProtectionRelayClient` se encarga de leer
+                                        y decodificar registros de fallas de los relés MiCOM.</p>
+                                    <ul class="mt-4 space-y-3 text-sm">
+                                        <li class="flex items-start"><span class="text-emerald-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Control:</span> El monitoreo se puede
+                                                activar/desactivar desde la interfaz web. El estado se guarda en
+                                                `observar.txt`.</div>
+                                        </li>
+                                        <li class="flex items-start"><span class="text-emerald-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Método:</span> Si está activo, el cliente
+                                                itera sobre un rango de direcciones de memoria Modbus (`0x3700` a
+                                                `0x3718`), leyendo bloques de 15 registros en cada una.</div>
+                                        </li>
+                                        <li class="flex items-start"><span class="text-emerald-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Decodificación:</span> Cada bloque de 15
+                                                registros se convierte en un objeto `RegistroFalla`, que interpreta los
+                                                datos brutos en información útil (fecha, tipo de falla, corrientes,
+                                                etc.).</div>
+                                        </li>
+                                        <li class="flex items-start"><span class="text-emerald-500 mr-2">▶</span>
+                                            <div><span class="font-semibold">Selección:</span> De todos los registros de
+                                                falla decodificados, el sistema identifica y selecciona el más reciente
+                                                basándose en el `fault_number` más alto.</div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Alertas Section -->
+                    <section id="content-alertas" class="content-section">
+                        <div class="bg-white p-8 rounded-lg shadow">
+                            <h2 class="text-2xl font-bold text-slate-900">Sistema de Notificación de Alarmas</h2>
+                            <p class="mt-4 text-slate-600">Un observador de alarmas (`alarm_notifier`) se ejecuta de
+                                forma continua en un hilo separado para detectar condiciones críticas y enviar
+                                notificaciones por correo electrónico. El sistema previene el envío de alertas espurias
+                                requiriendo que la condición de alarma se mantenga durante un tiempo mínimo.</p>
+
+                            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="bg-rose-50 p-6 rounded-lg border border-rose-200">
+                                    <h3 class="text-xl font-semibold text-rose-800">Alarma de Conectividad Global</h3>
+                                    <p class="mt-2 text-sm text-slate-600">Se enfoca en la salud general de la red de
+                                        dispositivos.</p>
+                                    <ul class="mt-4 space-y-2 text-sm text-slate-700">
+                                        <li><strong>Condición:</strong> El porcentaje de GRDs conectados cae por debajo
+                                            del <span class="font-bold text-rose-600">60%</span>.</li>
+                                        <li><strong>Duración Mínima:</strong> La condición debe sostenerse por <span
+                                                class="font-bold text-rose-600">30 minutos</span>.</li>
+                                        <li><strong>Acción:</strong> Se envía un correo electrónico notificando sobre la
+                                            caída crítica de la conectividad global.</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-amber-50 p-6 rounded-lg border border-amber-200">
+                                    <h3 class="text-xl font-semibold text-amber-800">Alarma de GRD Individual</h3>
+                                    <p class="mt-2 text-sm text-slate-600">Detecta fallos en dispositivos específicos
+                                        cuando la red general está saludable.</p>
+                                    <ul class="mt-4 space-y-2 text-sm text-slate-700">
+                                        <li><strong>Condición:</strong> Un GRD específico está desconectado Y la
+                                            conectividad global es <span class="font-bold text-amber-600">igual o
+                                                superior al 60%</span>.</li>
+                                        <li><strong>Duración Mínima:</strong> La condición debe sostenerse por <span
+                                                class="font-bold text-amber-600">30 minutos</span>.</li>
+                                        <li><strong>Acción:</strong> Se envía un correo electrónico notificando sobre la
+                                            desconexión del equipo individual.</li>
+                                        <li><strong>Exclusión:</strong> Se puede mantener una lista
+                                            (`grd_exclusion_list.txt`) para evitar alarmas de ciertos GRDs.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Interfaz Section -->
+                    <section id="content-interfaz" class="content-section">
+                        <div class="bg-white p-8 rounded-lg shadow">
+                            <h2 class="text-2xl font-bold text-slate-900">Exploración de la Interfaz de Usuario</h2>
+                            <p class="mt-4 text-slate-600">La interfaz web, construida con Dash, proporciona una
+                                visualización clara y en tiempo real de los datos de monitoreo. A continuación se
+                                muestran representaciones de los componentes clave de la interfaz para ilustrar su
+                                funcionalidad y diseño.</p>
+
+                            <div class="mt-8 space-y-12">
+                                <!-- KPI Panel -->
+                                <div>
+                                    <h3 class="text-xl font-semibold text-slate-800">Panel de KPIs y Estado</h3>
+                                    <p class="mt-2 text-sm text-slate-600">En la parte superior del dashboard, un panel
+                                        muestra los indicadores de rendimiento clave (KPIs) de un vistazo: el grado de
+                                        conectividad general y la lista de equipos actualmente desconectados.</p>
+                                    <div
+                                        class="mt-4 p-6 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                                        <div class="chart-container h-64 md:h-80">
+                                            <canvas id="kpiGaugeChart"></canvas>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-semibold text-slate-700">Actualmente Desconectados</h4>
+                                            <ul class="mt-2 bg-white p-3 rounded shadow-inner text-sm space-y-2">
+                                                <li class="flex justify-between"><span>GRD 008 (Descripción
+                                                        Ejemplo)</span> <span class="text-rose-600 font-medium">125
+                                                        min</span></li>
+                                                <li class="flex justify-between"><span>GRD 012 (Otra Descripción)</span>
+                                                    <span class="text-rose-600 font-medium">42 min</span></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- History Panel -->
+                                <div>
+                                    <h3 class="text-xl font-semibold text-slate-800">Gráfico Histórico de Conexión</h3>
+                                    <p class="mt-2 text-sm text-slate-600">Este gráfico interactivo permite a los
+                                        usuarios analizar el historial de conectividad de un GRD específico. Se puede
+                                        seleccionar el dispositivo y la ventana de tiempo a visualizar.</p>
+                                    <div class="mt-4 p-6 bg-slate-50 rounded-lg border border-slate-200">
+                                        <div class="chart-container h-80 md:h-96">
+                                            <canvas id="historyChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            function updateActiveTab(targetId) {
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.id === `nav-${targetId}`);
+                });
+                contentSections.forEach(section => {
+                    section.classList.toggle('active', section.id === `content-${targetId}`);
+                });
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const targetId = e.target.id.split('-')[1];
+                    updateActiveTab(targetId);
+                });
+            });
+
+            // Set initial active tab
+            updateActiveTab('arquitectura');
+
+            // Architecture Diagram Interaction
+            const diagramItems = document.querySelectorAll('.diagram-item');
+            const detailPanels = document.querySelectorAll('.detail-panel');
+            const initialPanel = document.getElementById('detail-panel-initial');
+
+            diagramItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const targetId = item.id.split('-')[1];
+
+                    initialPanel.style.display = 'none';
+                    detailPanels.forEach(panel => {
+                        panel.style.display = (panel.id === `detail-panel-${targetId}`) ? 'block' : 'none';
+                    });
+                });
+            });
+
+            // Chart.js Implementations
+
+            // KPI Gauge Chart
+            const kpiCtx = document.getElementById('kpiGaugeChart').getContext('2d');
+            new Chart(kpiCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Conectado', 'Desconectado'],
+                    datasets: [{
+                        data: [85, 15],
+                        backgroundColor: ['#10b981' /* emerald-500 */, '#f43f5e' /* rose-500 */],
+                        borderColor: '#f8fafc',
+                        borderWidth: 4,
+                        circumference: 180,
+                        rotation: 270,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false },
+                        title: {
+                            display: true,
+                            text: 'Grado de Conectividad: 85%',
+                            position: 'bottom',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    },
+                    cutout: '70%',
+                }
+            });
+
+            // History Chart
+            const historyCtx = document.getElementById('historyChart').getContext('2d');
+            new Chart(historyCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Día -7', 'Día -6', 'Día -5', 'Día -4', 'Día -3', 'Día -2', 'Hoy'],
+                    datasets: [{
+                        label: 'Horas Conectado',
+                        data: [24, 23, 24, 24, 22, 24, 20],
+                        backgroundColor: '#10b981', // emerald-500
+                        borderColor: '#059669',
+                        borderWidth: 1
+                    }, {
+                        label: 'Horas Desconectado',
+                        data: [0, 1, 0, 0, 2, 0, 4],
+                        backgroundColor: '#f43f5e', // rose-500
+                        borderColor: '#e11d48',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Histórico de Conexión Semanal para GRD 001',
+                            font: { size: 18 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + 'h';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                        },
+                        y: {
+                            stacked: true,
+                            max: 24,
+                            title: {
+                                display: true,
+                                text: 'Horas'
+                            }
+                        }
+                    }
+                }
+            });
+
+        });
+    </script>
+
+</body>
+
+</html>
