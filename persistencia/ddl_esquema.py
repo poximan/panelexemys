@@ -68,7 +68,7 @@ def create_database_schema():
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS reles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id_modbus INTEGER,
+                    id_modbus INTEGER UNIQUE,
                     descripcion TEXT
                 )
             ''')

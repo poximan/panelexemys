@@ -121,8 +121,7 @@ class ModbusTcpDriver:
             result = self._client.write_register(address_offset, value, slave=unit_id)
             if result is None or (hasattr(result, 'isError') and result.isError()):
                 print(f"Modbus Driver: Error al escribir registro para Unit ID {unit_id}, Addr {address_offset}, Value {value}: {result}")
-                return False
-            # print(f"Modbus Driver: Escrito {value} en Unit ID {unit_id}, Addr {address_offset}")
+                return False            
             return True
         except Exception as e:
             print(f"Modbus Driver: Excepción al escribir registro para Unit ID {unit_id}, Addr {address_offset}, Value {value}: {e}")

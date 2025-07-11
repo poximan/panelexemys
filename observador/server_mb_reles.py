@@ -1,8 +1,10 @@
 import time
-import os # Importar el módulo os para manejar rutas de archivo
+import os # Importar el modulo os para manejar rutas de archivo
 from .modbus_driver import ModbusTcpDriver # Importacion relativa
 from modelo.registro_falla import RegistroFalla
 import config
+from persistencia.dao_reles import reles_dao # Importa el DAO para la tabla 'reles'
+from persistencia.dao_fallas_reles import fallas_reles_dao # Importa el nuevo DAO para la tabla 'fallas_reles'
 
 class ProtectionRelayClient:
     """
@@ -19,10 +21,13 @@ class ProtectionRelayClient:
         """
         self.driver = modbus_driver
         self.refresh_interval = refresh_interval
-        self.relay_unit_ids = self._get_active_relay_ids()
+        
+        # Obtener los IDs de los reles activos directamente desde el DAO de reles
+        # Se asume que get_all_reles_with_descriptions ya filtra los "NO APLICA"
+        self.relay_unit_ids = list(reles_dao.get_all_reles_with_descriptions().keys())
         
         # Construir la ruta absoluta al archivo observar.txt al inicializar
-        # Asumiendo que 'observar.txt' está en el MISMO directorio que 'server_mb_reles.py'.
+        # Asumiendo que 'observar.txt' esta en el MISMO directorio que 'server_mb_reles.py'.
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.observar_file_path = os.path.join(script_dir, 'observar.txt') # Ruta corregida
 
@@ -30,20 +35,9 @@ class ProtectionRelayClient:
         self._last_observing_status = None 
 
         if not self.relay_unit_ids:
-            print("ADVERTENCIA (Relay Client): No se encontraron IDs de reles activos para monitorear en config.ESCLAVOS_MB. El cliente de reles estara inactivo.")
+            print("ADVERTENCIA (Relay Client): No se encontraron IDs de reles activos para monitorear en la base de datos. El cliente de reles estara inactivo.")
         else:
             print(f"Relay Client: Monitoreando reles con Unit IDs: {self.relay_unit_ids}")
-
-    def _get_active_relay_ids(self) -> list[int]:
-        """
-        Genera la lista de Unit IDs de reles activos desde config.ESCLAVOS_MB,
-        excluyendo aquellos con la descripcion "NO APLICA".
-        """
-        active_ids = []
-        for unit_id, description in config.ESCLAVOS_MB.items():
-            if "NO APLICA" not in description:
-                active_ids.append(unit_id)
-        return active_ids
 
     def _is_observing_enabled(self) -> bool:
         """
@@ -92,7 +86,7 @@ class ProtectionRelayClient:
                 print(f"Relay Client: Monitoreo deshabilitado durante la lectura de Rele (Unit ID: {relay_id}). Deteniendo lectura en Addr {hex(current_address)}.")
                 return None # Detiene la lectura de este rele y retorna inmediatamente
 
-            print(f"Relay Client: Intentando leer registro de falla para Rele (Unit ID: {relay_id}) desde Addr {hex(current_address)} (Decimal: {current_address})...")
+            print(f"Rele (Unit ID: {relay_id}) - Leyendo registro Addr {hex(current_address)} (Decimal: {current_address})")
             
             # Lee 15 registros (un bloque completo para un RegistroFalla) desde la direccion actual
             registers = self.driver.read_holding_registers(current_address, num_registers_per_fault, unit_id=relay_id)
@@ -102,7 +96,7 @@ class ProtectionRelayClient:
                     # Intenta crear una instancia de RegistroFalla con los registros leidos
                     registro_falla = RegistroFalla(registers)
                     all_fault_records.append(registro_falla)
-                    print(f"Relay Client: Registro de falla decodificado desde {hex(current_address)} con Numero de Falla: {registro_falla.fault_number}")
+                    print(f"Rele (Unit ID: {relay_id}) - Registro {hex(current_address)} decodificado. Falla nº{registro_falla.fault_number}")
                 except ValueError as e:
                     print(f"Relay Client: ERROR al decodificar registros de falla desde Addr {hex(current_address)} para Unit ID {relay_id}: {e}. Registros brutos: {registers}")
                 except Exception as e: # Captura cualquier otra excepcion durante la creacion de RegistroFalla
@@ -110,7 +104,7 @@ class ProtectionRelayClient:
             else:
                 print(f"Relay Client: Fallo al leer {num_registers_per_fault} registros desde Addr {hex(current_address)} de Rele (Unit ID {relay_id}).")
         
-        # Después de intentar leer todos los posibles registros de falla, encontrar el que tenga el fault_number mas grande
+        # Despues de intentar leer todos los posibles registros de falla, encontrar el que tenga el fault_number mas grande
         if all_fault_records:
             # Encontrar el registro con el fault_number mas grande
             latest_fault_record = None
@@ -125,9 +119,32 @@ class ProtectionRelayClient:
             
             if latest_fault_record:
                 print(f"Relay Client: Falla mas reciente encontrada para Rele (Unit ID {relay_id}) con Numero de Falla: {latest_fault_record.fault_number}.")
-                # Puedes imprimir mas detalles si lo deseas, como los que estaban antes:
-                # print(f"   Fecha/Hora Falla: {latest_fault_record.fault_datetime}")
-                # print(f"   Tipo de Falla: {latest_fault_record.fault_type}")
+                
+                # *** INSERCION EN LA BASE DE DATOS ***
+                # Primero, obtener el ID interno del rele desde la tabla 'reles'
+                internal_rele_id = reles_dao.get_internal_id_by_modbus_id(relay_id)
+                
+                if internal_rele_id is not None:
+                    # Convertir el timestamp del objeto RegistroFalla a formato ISO para la base de datos
+                    fault_timestamp_iso = latest_fault_record.fault_datetime.isoformat() if latest_fault_record.fault_datetime else None
+
+                    # Verificar si la falla ya existe antes de insertar
+                    if not fallas_reles_dao.falla_exists(internal_rele_id, latest_fault_record.fault_number, fault_timestamp_iso):
+                        # Insertar la falla en la tabla 'fallas_reles'
+                        fallas_reles_dao.insert_falla_rele(
+                            id_rele=internal_rele_id,
+                            numero_falla=latest_fault_record.fault_number,
+                            timestamp=fault_timestamp_iso,
+                            fasea_corr=latest_fault_record.current_phase_a,
+                            faseb_corr=latest_fault_record.current_phase_b,
+                            fasec_corr=latest_fault_record.current_phase_c,
+                            tierra_corr=latest_fault_record.earth_current
+                        )
+                    else:
+                        print(f"Relay Client: Falla (Nº {latest_fault_record.fault_number}, Timestamp: {fault_timestamp_iso}) para Rele interno ID {internal_rele_id} ya existe en la DB. No se reinserta.")
+                else:
+                    print(f"ADVERTENCIA: No se pudo encontrar el ID interno para el rele Modbus ID {relay_id}. No se registrara la falla en la BD.")
+
                 return latest_fault_record.to_dict()
             else:
                 print(f"Relay Client: No se pudo determinar la falla mas reciente para Rele (Unit ID {relay_id}) a pesar de haber leido registros. Posiblemente todos los fault_number fueron invalidos.")
@@ -156,29 +173,32 @@ class ProtectionRelayClient:
                 self._last_observing_status = current_observing_status
 
             # Si la observacion esta deshabilitada, espera y continua al siguiente ciclo
-            if not current_observing_status:                
+            if not current_observing_status: 
+                time.sleep(self.refresh_interval) # Anadimos el sleep aqui para evitar un bucle de CPU intenso
                 continue 
             
             # Intenta conectar el driver Modbus si no esta conectado.
             # No se intenta reconectar si ya esta conectado.
             if not self.driver.is_connected():
                 if not self.driver.connect():
-                    print("Relay Client: No se pudo establecer conexion con el servidor Modbus. Reintentando en el proximo ciclo.")                    
+                    print("Relay Client: No se pudo establecer conexion con el servidor Modbus. Reintentando en el proximo ciclo.") 
+                    time.sleep(self.refresh_interval) # Anadimos el sleep aqui para evitar un bucle de CPU intenso
                     continue # Vuelve al inicio del bucle para reintentar la conexion
 
             # Si la lista de reles esta vacia (por ejemplo, despues del filtrado 'NO APLICA'),
             # el cliente espera sin intentar lecturas.
             if not self.relay_unit_ids:
-                print("Relay Client: No hay reles activos para monitorear. Esperando...")                
+                print("Relay Client: No hay reles activos para monitorear. Esperando...") 
+                time.sleep(self.refresh_interval) # Anadimos el sleep aqui para evitar un bucle de CPU intenso
                 continue # Vuelve al inicio del bucle para revisar mas tarde
 
             # Itera sobre cada rele activo y lee su estado
             # La funcion read_relay_status contendra la logica para detener las consultas Modbus
             # si el monitoreo esta deshabilitado.
             for relay_id in self.relay_unit_ids:
-                print(f"Controlando rele {relay_id}")
+                print(f"Comienza iteracion sobre rele {relay_id}")
                 self.read_relay_status(relay_id)
-                # Aqui podrias añadir logica adicional basada en el estado leido,
+                # Aqui podrias anadir logica adicional basada en el estado leido,
                 # como enviar alertas, actualizar una base de datos especifica de reles, etc.
             
             # Espera el intervalo definido antes de la siguiente ronda de monitoreo
