@@ -9,8 +9,10 @@ import persistencia.ddl_esquema as ddl # Importa el modulo para crear el esquema
 import persistencia.sim_poblar as poblador # Importa el modulo de poblamiento
 
 from observador.main_observer import start_modbus_orchestrator 
-import notificador.alarm_notifier as notif # Importa el nuevo modulo del notificador de alarmas
+from notificador.alarm_notifier import AlarmNotifier
+
 import config # Importa la configuracion
+from logger import Logosaurio
 
 # Asegurate de que el esquema de la base de datos este creado antes de iniciar la aplicacion
 ddl.create_database_schema()
@@ -37,46 +39,54 @@ dash_config.configure_dash_app(app)
 
 # --- Ejecucion de la aplicacion ---
 if __name__ == '__main__':
+
+    logger_app = Logosaurio()
     # Esta logica se ejecutara solo en el proceso principal (no en el reloader).
     if not is_running_from_reloader():
-        print("Es el proceso principal. Realizando tareas de inicializacion...")
+        print("1º: Es el proceso principal. Realizando tareas de inicializacion...")
 
-        # Asegurando que los equipos definidos en config.GRD_DESCRIPTIONS existan en la tabla 'grd'.
-        print("Asegurando que los equipos definidos en config.GRD_DESCRIPTIONS existan en la tabla 'grd'...")
+        # 1. Crear una única instancia de Logosaurio para toda la aplicación        
+        logger_app.log("Iniciando aplicación. Creando logger central...", origen="APP")
+        
+        logger_app.log("2º: Asegurando que los equipos definidos en config.GRD_DESCRIPTIONS existan en BD...", origen="APP")
         for grd_id, description in config.GRD_DESCRIPTIONS.items():
             dao_grd.insert_grd_description(grd_id, description)
-        print("Equipos GRD iniciales asegurados en la base de datos.")
+        logger_app.log("Equipos GRD iniciales asegurados en la base de datos.", origen="APP")
 
-        # Asegurando que los reles definidos en config.ESCLAVOS_MB existan en la tabla 'reles'.
-        print("Asegurando que los reles definidos en config.ESCLAVOS_MB existan en la tabla 'reles'...")
-        for rele_id, description in config.ESCLAVOS_MB.items():
-            # Filtro de "NO APLICA" movido a app.py
+        logger_app.log("3º: Asegurando que los reles definidos en config.ESCLAVOS_MB existan en BD...", origen="APP")
+        for rele_id, description in config.ESCLAVOS_MB.items():            
             if not description.strip().upper().startswith("NO APLICA"):
                 dao_reles.insert_rele_description(rele_id, description)
-        print("Reles iniciales asegurados en la base de datos.")
+        logger_app.log("Reles iniciales asegurados en la base de datos.", origen="APP")
 
         # Logica de poblamiento de datos historicos (si esta activada en config.py)
         if config.POBLAR_BD:
-            print("POBLAR_BD es True. Procediendo a poblar la base de datos con datos historicos...")
+            logger_app.log("Procediendo a poblar la base de datos con datos historicos...", origen="APP")
             poblador.populate_database_conditionally()
         else:
-            print("POBLAR_BD es False. No se poblara la base de datos con datos de ejemplo.")
+            logger_app.log("No se poblara la base de datos con datos de ejemplo.", origen="APP")
         
         # Lanzar el orquestador modbus
-        print("Lanzando el orquestador Modbus en un hilo separado...")
-        modbus_orchestrator_thread = threading.Thread(target=start_modbus_orchestrator)
+        logger_app.log("4º: Lanzando el orquestador Modbus en un hilo separado...", origen="APP")
+        modbus_orchestrator_thread = threading.Thread(
+            target=start_modbus_orchestrator,
+            args=(logger_app,)
+            )
         modbus_orchestrator_thread.daemon = True # Permite que el hilo termine si el programa principal lo hace
         modbus_orchestrator_thread.start()
 
         # Lanzar el notificador de alarmas en un hilo separado
-        print("Lanzando el notificador de alarmas en un hilo separado...")
-        alarm_thread = threading.Thread(target=notif.start_alarm_observer)
-        alarm_thread.daemon = True # Permite que el hilo termine si el programa principal lo hace
+        logger_app.log("5º: Lanzando el notificador de alarmas en un hilo separado...", origen="APP")
+        alarm_notifier_instance = AlarmNotifier(logger=logger_app)
+        alarm_thread = threading.Thread(
+            target=alarm_notifier_instance.start_observer_loop,
+            daemon=True # Permite que el hilo termine si el programa principal lo hace
+        )
         alarm_thread.start()
 
     else:
         # Mensaje para el proceso del reloader (cuando debug=True)
-        print("Es el proceso del reloader. La inicializacion de la BD y los observadores se omiten.")
+        logger_app.log("Es el proceso del reloader. La inicializacion de la BD y los observadores se omiten.", origen="APP")
     
-    print("Iniciando servidor Dash...")
+    logger_app.log("Iniciando servidor Dash...", origen="APP")
     app.run_server(debug=True, host='0.0.0.0')

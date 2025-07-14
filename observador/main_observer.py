@@ -3,40 +3,59 @@ from .modbus_driver import ModbusTcpDriver
 from .server_mb_middleware import GrdMiddlewareClient
 from .server_mb_reles import ProtectionRelayClient
 import config
+from logger import Logosaurio
 
-def start_modbus_orchestrator():
+def start_modbus_orchestrator(logger: Logosaurio):
     """
     Funcion principal para iniciar y orquestar los observadores Modbus.
-    Esta funcion es diseÃ±ada para ser llamada desde el proceso principal de una aplicacion mayor.
-    """
-    print("Iniciando la aplicacion de Observadores Modbus (Orquestador)...")
+    """    
+    logger.log("Iniciando la aplicacion de Observadores Modbus (Orquestador)...", origen="OBS/MAIN")
 
     # --- 1. Inicializacion del Driver Modbus Centralizado ---
-    print(f"Creando driver Modbus TCP para {config.MB_HOST}:{config.MB_PORT}...")
-    common_modbus_driver = ModbusTcpDriver(host=config.MB_HOST, port=config.MB_PORT)
+    logger.log(f"Creando driver Modbus TCP para {config.MB_HOST}:{config.MB_PORT}...", origen="OBS/MAIN")
+    try:
+        common_modbus_driver = ModbusTcpDriver(
+            host=config.MB_HOST, 
+            port=config.MB_PORT,
+            timeout=5,
+            logger=logger
+        )
+    except Exception as e:
+        logger.log(f"Error al crear el driver Modbus: {e}. Saliendo...", origen="OBS/MAIN")
+        return
 
     # --- 2. Inicializacion del Cliente de GRD Middleware ---
-    print("Inicializando cliente GRD Middleware...")
+    logger.log("Inicializando cliente GRD Middleware...", origen="OBS/MAIN")
     grd_client = GrdMiddlewareClient(
         modbus_driver=common_modbus_driver,
-        default_unit_id=config.MB_ID, # Unit ID 22, especÃ­fico para los GRDs
+        default_unit_id=config.MB_ID,
         register_count=config.MB_COUNT,
-        refresh_interval=config.MB_INTERVAL_SECONDS
+        refresh_interval=config.MB_INTERVAL_SECONDS,
+        logger=logger
     )
 
-    # --- 3. Inicializacion del Cliente de RelÃ©s de ProtecciÃ³n ---
-    print("Inicializando cliente Reles de Proteccion...")
+    # --- 3. Inicializacion del Cliente de Reles de Proteccion ---
+    logger.log("Inicializando cliente Reles de Proteccion...", origen="OBS/MAIN")
     protection_relay_client = ProtectionRelayClient(
         modbus_driver=common_modbus_driver,
-        refresh_interval=config.MB_INTERVAL_SECONDS
+        refresh_interval=config.MB_INTERVAL_SECONDS,
+        logger=logger
     )
 
     # --- 4. Iniciar los bucles de observacion en hilos separados ---
-    print("Lanzando observadores en hilos separados...")
+    logger.log("Lanzando observadores en hilos separados...", origen="OBS/MAIN")
     grd_thread = threading.Thread(target=grd_client.start_observer_loop, daemon=True)
     relay_thread = threading.Thread(target=protection_relay_client.start_monitoring_loop, daemon=True)
 
     grd_thread.start()
-    relay_thread.start()    
+    relay_thread.start()
     
-    print("Orquestador Modbus iniciado y hilos lanzados.")
+    logger.log("Orquestador Modbus iniciado e hilos lanzados.", origen="OBS/MAIN")
+    
+    try:
+        while True:
+            threading.Event().wait()
+    except (KeyboardInterrupt, SystemExit):
+        logger.log("Orquestador detenido por el usuario.", origen="OBS/MAIN")
+        common_modbus_driver.disconnect()
+        logger.log("Conexion Modbus cerrada. Proceso finalizado.", origen="OBS/MAIN")

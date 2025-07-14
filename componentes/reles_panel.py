@@ -65,9 +65,6 @@ def register_reles_micom_callbacks(app):
         # Calcula la ruta relativa al directorio raiz del proyecto
         relative_observar_file_path = os.path.relpath(observar_file_path, project_root)
 
-        # Garantiza que la carpeta 'observador' exista
-        os.makedirs(os.path.dirname(observar_file_path), exist_ok=True)
-
         # Escribe el estado en el archivo
         try:
             with open(observar_file_path, 'w') as f:
