@@ -405,3 +405,73 @@
     background-color: #f8d7da;
     color: #721c24;
 }
+
+/* ============================================================ */
+/* ============================================================ */
+/* ============================================================ */
+/* --- Estilos para la Pestaña de Relés MiCOM ----------------- */
+/* ============================================================ */
+/* ============================================================ */
+
+.reles-controls-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.hidden-element {
+    display: none;
+}
+
+.reles-faults-grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* Dos columnas de igual ancho */
+    gap: 20px;
+    /* Espacio entre las columnas y filas */
+    padding: 20px;
+    border: 1px dashed #ccc;
+    margin-top: 20px;
+}
+
+.reles-fault-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+    /* Equivalente a p-4 */
+}
+
+.reles-fault-title {
+    font-size: 1.25rem;
+    /* Equivalente a text-xl */
+    font-weight: 600;
+    /* Equivalente a font-semibold */
+    margin-top: 16px;
+    /* Equivalente a mt-4 */
+    margin-bottom: 8px;
+    /* Equivalente a mb-2 */
+}
+
+/* Estilos especificos para Dash DataTable dentro de reles_panel */
+.reles-fault-table-container {
+    overflow-x: auto;
+    margin-bottom: 20px;
+}
+
+.reles-fault-table-cell {
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    padding: 8px 12px;
+}
+
+.reles-fault-table-header {
+    background-color: #66A5AD;
+    color: white;
+    font-weight: bold;
+}
+
+/* Estilo condicional para filas impares en tablas de falla */
+.reles-fault-table-odd-row {
+    background-color: #C4DFE6;
+}

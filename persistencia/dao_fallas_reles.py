@@ -57,5 +57,32 @@ class FallasRelesDAO:
                 if conn:
                     conn.close()
 
+    def get_latest_falla_for_rele(self, id_rele: int) -> dict | None:
+        """
+        Obtiene la falla mas reciente (mayor numero_falla y luego timestamp mas reciente)
+        para un rele especifico.
+        Retorna un diccionario con los datos de la falla o None si no se encuentra.
+        """
+        conn = None
+        with db_lock:
+            try:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id_rele, numero_falla, timestamp, fasea_corr, faseb_corr, fasec_corr, tierra_corr
+                    FROM fallas_reles
+                    WHERE id_rele = ?
+                    ORDER BY numero_falla DESC, timestamp DESC
+                    LIMIT 1
+                ''', (id_rele,))
+                result = cursor.fetchone()
+                return dict(result) if result else None
+            except sqlite3.Error as e:
+                print(f"ERROR al obtener la ultima falla para el rele interno ID {id_rele}: {e}")
+                return None
+            finally:
+                if conn:
+                    conn.close()
+
 # Instancia global del DAO para fallas de reles
 fallas_reles_dao = FallasRelesDAO()
