@@ -2,6 +2,7 @@ import threading # Para ejecutar los observadores en hilos separados
 from werkzeug.serving import is_running_from_reloader # Importa para detectar el proceso del reloader
 import dash
 import dash_config # Importa el modulo de configuracion de Dash
+from flask import request
 
 from persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
 from persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO para relés
@@ -13,6 +14,8 @@ from notificador.alarm_notifier import AlarmNotifier
 
 import config # Importa la configuracion
 from logger import Logosaurio
+
+logger_app = Logosaurio()
 
 # Asegurate de que el esquema de la base de datos este creado antes de iniciar la aplicacion
 ddl.create_database_schema()
@@ -34,13 +37,32 @@ app.config['suppress_callback_exceptions'] = True
 # Esta linea es necesaria para Gunicorn o despliegues de produccion
 server = app.server
 
+"""
+plotly usa dash para su parte grafica, que a su vez usa flash como microframework para http.
+en este sentido, implementamos un decorador @server.before_request para  registra una función
+que se ejecutará antes que la solicitud llegue al servidor.
+"""
+@server.before_request
+def log_user_ip():
+    """
+    Función que se ejecuta antes de cada solicitud HTTP
+    y registra la IP del cliente.
+    """
+    ip_addr = request.remote_addr
+
+    # Si la IP es la del host local, salir
+    if ip_addr == '127.0.0.1':
+        return
+    
+    # Registra la IP, el método HTTP y la ruta de la solicitud
+    logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="HTTP/GET")
+
 # Configura el layout y los callbacks de la aplicacion usando la funcion de dash_config
 dash_config.configure_dash_app(app)
 
 # --- Ejecucion de la aplicacion ---
 if __name__ == '__main__':
 
-    logger_app = Logosaurio()
     # Esta logica se ejecutara solo en el proceso principal (no en el reloader).
     if not is_running_from_reloader():
         print("1º: Es el proceso principal. Realizando tareas de inicializacion...")
