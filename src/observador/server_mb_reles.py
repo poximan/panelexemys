@@ -1,10 +1,10 @@
 import time
 import os
+from src.modelo.registro_falla import RegistroFalla
+from src.persistencia.dao_reles import reles_dao
+from src.persistencia.dao_fallas_reles import fallas_reles_dao
+from src.logger import Logosaurio # Importado para anotacion de tipo
 from .modbus_driver import ModbusTcpDriver
-from modelo.registro_falla import RegistroFalla
-from persistencia.dao_reles import reles_dao
-from persistencia.dao_fallas_reles import fallas_reles_dao
-from logger import Logosaurio # Importado para anotacion de tipo
 
 class ProtectionRelayClient:
     """

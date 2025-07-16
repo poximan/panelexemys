@@ -1,5 +1,5 @@
 import sqlite3
-from persistencia.dao_base import get_db_connection, db_lock # Asegúrate de que db_lock esté definido y funcione correctamente
+from .dao_base import get_db_connection, db_lock # Asegúrate de que db_lock esté definido y funcione correctamente
 
 class MensajesEnviadosDAO:
     def insert_sent_message(self, subject: str, body: str, timestamp: str, message_type: str, recipients: str | list[str], success: bool):

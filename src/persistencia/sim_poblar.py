@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 import random
 import numpy as np
 import os
+import config                   # Importa el archivo de configuración
 from . import ddl_esquema       # Importa el módulo para asegurar el esquema
 from .dao_grd import grd_dao as dao 
-import config                   # Importa el archivo de configuración
 
 # Rutas de la base de datos usando config.py
 DATABASE_DIR = config.DATABASE_DIR

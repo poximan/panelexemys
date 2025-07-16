@@ -4,8 +4,8 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 from datetime import datetime
-from persistencia.dao_historicos import historicos_dao as dao
-from persistencia.dao_grd import grd_dao
+from src.persistencia.dao_historicos import historicos_dao as dao
+from src.persistencia.dao_grd import grd_dao
 
 def get_kpi_panel_layout():
     """

@@ -2,11 +2,11 @@ import os
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Any
-from persistencia.dao_historicos import historicos_dao
-from persistencia.dao_mensajes_enviados import mensajes_enviados_dao
 from . import email_sender
+from src.persistencia.dao_historicos import historicos_dao
+from src.persistencia.dao_mensajes_enviados import mensajes_enviados_dao
+from src.logger import Logosaurio
 import config
-from logger import Logosaurio
 
 class AlarmNotifier:
     """

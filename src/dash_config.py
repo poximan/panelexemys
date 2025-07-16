@@ -1,14 +1,14 @@
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
-from persistencia.dao_grd import grd_dao
+from src.persistencia.dao_grd import grd_dao
 import config
 
 # Importa las funciones de layout y registro de callbacks de los nuevos archivos
-from componentes.middleware_kpi import get_kpi_panel_layout, register_kpi_panel_callbacks
-from componentes.middleware_histograma import get_controls_and_graph_layout, register_controls_and_graph_callbacks
-from componentes.middleware_tabla import get_main_data_table_layout, register_main_data_table_callbacks
-from componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
+from src.componentes.middleware_kpi import get_kpi_panel_layout, register_kpi_panel_callbacks
+from src.componentes.middleware_histograma import get_controls_and_graph_layout, register_controls_and_graph_callbacks
+from src.componentes.middleware_tabla import get_main_data_table_layout, register_main_data_table_callbacks
+from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
 
 
 def configure_dash_app(app: dash.Dash):

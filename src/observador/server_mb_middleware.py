@@ -1,9 +1,9 @@
 import time
 from datetime import datetime
+from src.persistencia.dao_historicos import historicos_dao as dao
+from src.persistencia.dao_grd import grd_dao
+from src.logger import Logosaurio
 from .modbus_driver import ModbusTcpDriver
-from persistencia.dao_historicos import historicos_dao as dao
-from persistencia.dao_grd import grd_dao
-from logger import Logosaurio
 
 class GrdMiddlewareClient:
     """

@@ -5,12 +5,8 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-
-# Asumiendo que dao_historicos y dao_grd son accesibles globalmente o pasados
-# Aquí se importan directamente para simplificar el ejemplo.
-# En una aplicación real, podrías querer pasarlos como argumentos a una función de inicialización.
-from persistencia.dao_historicos import historicos_dao as dao
-from persistencia.dao_grd import grd_dao
+from src.persistencia.dao_historicos import historicos_dao as dao
+from src.persistencia.dao_grd import grd_dao
 
 BUTTON_CLASS_DEFAULT = 'button-default'
 BUTTON_CLASS_ACTIVE = 'button-active'

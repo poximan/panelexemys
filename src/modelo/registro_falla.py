@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from logger import Logosaurio
+from src.logger import Logosaurio
 
 class RegistroFalla:
     """

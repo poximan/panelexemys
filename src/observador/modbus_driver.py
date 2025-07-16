@@ -1,5 +1,5 @@
 from pymodbus.client import ModbusTcpClient
-from logger import Logosaurio
+from src.logger import Logosaurio
 
 class ModbusTcpDriver:
     """

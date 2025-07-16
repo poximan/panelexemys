@@ -2,8 +2,8 @@ import sqlite3
 import pandas as pd
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from persistencia.dao_base import get_db_connection, db_lock
-from persistencia.dao_grd import grd_dao # Se necesita para la validación de GRD_ID
+from .dao_base import get_db_connection, db_lock
+from .dao_grd import grd_dao # Se necesita para la validación de GRD_ID
 
 class HistoricosDAO:
     def insert_historico_reading(self, grd_id: int, timestamp: str, conectado_value: int):

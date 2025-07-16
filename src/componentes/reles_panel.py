@@ -2,9 +2,9 @@ from dash import html, dcc, no_update, dash_table
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
 import os
-from persistencia.dao_reles import reles_dao # Importa el DAO para la tabla 'reles'
-from persistencia.dao_fallas_reles import fallas_reles_dao # Importa el DAO para la tabla 'fallas_reles'
 from datetime import datetime # Importacion corregida: necesario para datetime.fromisoformat
+from src.persistencia.dao_reles import reles_dao # Importa el DAO para la tabla 'reles'
+from src.persistencia.dao_fallas_reles import fallas_reles_dao # Importa el DAO para la tabla 'fallas_reles'
 import config # Importacion corregida: necesario para config.DASHBOARD_REFRESH_INTERVAL_MS
 
 # --- Funciones de Layout ---

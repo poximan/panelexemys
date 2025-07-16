@@ -1,19 +1,19 @@
 import threading # Para ejecutar los observadores en hilos separados
 from werkzeug.serving import is_running_from_reloader # Importa para detectar el proceso del reloader
 import dash
-import dash_config # Importa el modulo de configuracion de Dash
+from . import dash_config # Importa el modulo de configuracion de Dash
 from flask import request
 
-from persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
-from persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO para relés
-import persistencia.ddl_esquema as ddl # Importa el modulo para crear el esquema
-import persistencia.sim_poblar as poblador # Importa el modulo de poblamiento
+from src.persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
+from src.persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO para relés
+import src.persistencia.ddl_esquema as ddl # Importa el modulo para crear el esquema
+import src.persistencia.sim_poblar as poblador # Importa el modulo de poblamiento
 
-from observador.main_observer import start_modbus_orchestrator 
-from notificador.alarm_notifier import AlarmNotifier
+from src.observador.main_observer import start_modbus_orchestrator 
+from src.notificador.alarm_notifier import AlarmNotifier
 
+from src.logger import Logosaurio
 import config # Importa la configuracion
-from logger import Logosaurio
 
 logger_app = Logosaurio()
 
