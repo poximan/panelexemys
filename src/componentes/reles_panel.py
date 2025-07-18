@@ -16,7 +16,7 @@ def get_reles_micom_layout():
     un area de estado, y un contenedor para las tablas de fallas.
     """
     return html.Div(children=[
-        html.H1("Estado Reles MiCOM", className='main-title'), # Estilo font-family ya en main-title
+        html.H1("Estado Reles MiCOM", className='main-title'),
         
         html.Div([
             # Usamos daq.BooleanSwitch directamente con su propia etiqueta
@@ -29,12 +29,12 @@ def get_reles_micom_layout():
             ),
             # El Div para el Output es mantenido, pero el callback retornara no_update
             html.Div(id='reles-micom-observer-status', className='hidden-element') # Estilo migrado
-        ], className='reles-controls-container'), # Estilo migrado
+        ], className='reles-controls-container'),
 
         html.Div(
             id='reles-faults-container',
             children=[html.P("Cargando datos de fallas de reles...")],
-            className='reles-faults-grid-container' # Estilo migrado
+            className='reles-faults-grid-container'
         ),
 
         # Componente dcc.Interval para refrescar los datos de las fallas

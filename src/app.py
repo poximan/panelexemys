@@ -51,7 +51,7 @@ def log_user_ip():
     ip_addr = request.remote_addr
 
     # Si la IP es la del host local, salir
-    if ip_addr == '127.0.0.1':
+    if ip_addr == '127.0.0.1' or ip_addr == '172.17.0.1' :
         return
     
     # Registra la IP, el método HTTP y la ruta de la solicitud
