@@ -33,7 +33,7 @@ class AlarmNotifier:
         if not os.path.exists(self.exclusion_file_path):
             self.logger.log(
                 f"El archivo de exclusion '{self.exclusion_file_path}' no existe. No se aplicaran exclusiones de GRD.", 
-                origen="NOTIF"
+                origen="NOTIF/ALRM"
             )
             return
 
@@ -43,11 +43,11 @@ class AlarmNotifier:
                     grd_id = line.strip()
                     if grd_id:
                         self.excluded_grd_ids.add(grd_id)
-            self.logger.log(f"GRD IDs excluidos cargados desde '{self.exclusion_file_path}': {self.excluded_grd_ids}", origen="NOTIF")
+            self.logger.log(f"GRD IDs excluidos cargados desde '{self.exclusion_file_path}': {self.excluded_grd_ids}", origen="NOTIF/ALRM")
         except Exception as e:
             self.logger.log(
                 f"ERROR al cargar los IDs de GRD excluidos desde '{self.exclusion_file_path}': {e}", 
-                origen="NOTIF"
+                origen="NOTIF/ALRM"
             )
 
     def _check_global_connectivity_alarm(self, current_percentage: float):
@@ -58,7 +58,7 @@ class AlarmNotifier:
                 self.global_connectivity_alarm_state['triggered'] = False
                 self.logger.log(
                     f"Alarma potencial: Conectividad global ({current_percentage:.2f}%) por debajo del {config.GLOBAL_THRESHOLD_ROJO}% - Iniciando conteo.", 
-                    origen="NOTIF"
+                    origen="NOTIF/ALRM"
                 )
             else:
                 sustained_duration = datetime.now() - self.global_connectivity_alarm_state['start_time']
@@ -76,9 +76,9 @@ class AlarmNotifier:
                     try:
                         email_sender.send_alarm_email(config.ALARM_EMAIL_RECIPIENT, subject, body)
                         sent_successfully = True
-                        self.logger.log("ALARMA DISPARADA: Conectividad global critica (Middleware sin conexion). Email enviado.", origen="NOTIF")
+                        self.logger.log("ALARMA DISPARADA: Conectividad global critica (Middleware sin conexion). Email enviado.", origen="NOTIF/ALRM")
                     except Exception as e:
-                        self.logger.log(f"ERROR al enviar email de alarma global: {e}", origen="NOTIF")
+                        self.logger.log(f"ERROR al enviar email de alarma global: {e}", origen="NOTIF/ALRM")
                     
                     mensajes_enviados_dao.insert_sent_message(
                         subject, 
@@ -93,7 +93,7 @@ class AlarmNotifier:
             if self.global_connectivity_alarm_state['start_time'] is not None:
                 self.logger.log(
                     f"Alarma de conectividad global resuelta. Conectividad actual: {current_percentage:.2f}%.", 
-                    origen="NOTIF"
+                    origen="NOTIF/ALRM"
                 )
             self.global_connectivity_alarm_state['start_time'] = None
             self.global_connectivity_alarm_state['triggered'] = False
@@ -112,7 +112,7 @@ class AlarmNotifier:
                 if grd_id in self.excluded_grd_ids:
                     self.logger.log(
                         f"GRD {grd_id} ({grd_description}) esta en la lista de exclusion. No se enviara alarma individual.", 
-                        origen="NOTIF"
+                        origen="NOTIF/ALRM"
                     )
                     if grd_id in self.individual_grd_alarm_states:
                         del self.individual_grd_alarm_states[grd_id]
@@ -126,7 +126,7 @@ class AlarmNotifier:
                     }
                     self.logger.log(
                         f"Alarma potencial: GRD {grd_id} ({grd_description}) desconectado con conectividad global > {config.GLOBAL_THRESHOLD_ROJO}%. Iniciando conteo.", 
-                        origen="NOTIF"
+                        origen="NOTIF/ALRM"
                     )
                 else:
                     sustained_duration = datetime.now() - self.individual_grd_alarm_states[grd_id]['start_time']
@@ -145,9 +145,9 @@ class AlarmNotifier:
                         try:
                             email_sender.send_alarm_email(config.ALARM_EMAIL_RECIPIENT, subject, body)
                             sent_successfully = True
-                            self.logger.log(f"ALARMA DISPARADA: GRD {grd_id} ({grd_description}) desconectado. Email enviado.", origen="NOTIF")
+                            self.logger.log(f"ALARMA DISPARADA: GRD {grd_id} ({grd_description}) desconectado. Email enviado.", origen="NOTIF/ALRM")
                         except Exception as e:
-                            self.logger.log(f"ERROR al enviar email de alarma individual para GRD {grd_id}: {e}", origen="NOTIF")
+                            self.logger.log(f"ERROR al enviar email de alarma individual para GRD {grd_id}: {e}", origen="NOTIF/ALRM")
                         
                         mensajes_enviados_dao.insert_sent_message(
                             subject, 
@@ -162,7 +162,7 @@ class AlarmNotifier:
                 if grd_id in self.individual_grd_alarm_states:
                     self.logger.log(
                         f"Alarma individual para GRD {grd_id} ({self.individual_grd_alarm_states[grd_id]['description']}) resuelta. Razones: conectividad global {current_percentage:.2f}% (debajo del umbral) o reconexion.", 
-                        origen="NOTIF"
+                        origen="NOTIF/ALRM"
                     )
                     del self.individual_grd_alarm_states[grd_id]
         
@@ -172,14 +172,14 @@ class AlarmNotifier:
                current_percentage >= config.GLOBAL_THRESHOLD_ROJO:
                 self.logger.log(
                     f"Alarma individual para GRD {grd_id} ({self.individual_grd_alarm_states[grd_id]['description']}) resuelta (equipo reconectado).", 
-                    origen="NOTIF"
+                    origen="NOTIF/ALRM"
                 )
                 grds_to_remove_from_state.append(grd_id)
             elif current_percentage < config.GLOBAL_THRESHOLD_ROJO and \
                  self.individual_grd_alarm_states[grd_id]['start_time'] is not None:
                 self.logger.log(
                     f"Alarma individual para GRD {grd_id} ({self.individual_grd_alarm_states[grd_id]['description']}) resuelta (conectividad global baja).", 
-                    origen="NOTIF"
+                    origen="NOTIF/ALRM"
                 )
                 grds_to_remove_from_state.append(grd_id)
         
@@ -190,7 +190,7 @@ class AlarmNotifier:
         """
         Inicia el bucle principal del observador de alarmas.
         """
-        self.logger.log("Iniciando observador de alarmas...", origen="NOTIF")
+        self.logger.log("Iniciando observador de alarmas...", origen="NOTIF/ALRM")
         self._load_excluded_grd_ids()
 
         while True:
@@ -210,6 +210,6 @@ class AlarmNotifier:
                 self._check_individual_grd_alarms(current_percentage, disconnected_grds_data)
 
             except Exception as e:
-                self.logger.log(f"ERROR en el observador de alarmas: {e}", origen="NOTIF")
+                self.logger.log(f"ERROR en el observador de alarmas: {e}", origen="NOTIF/ALRM")
 
             time.sleep(config.ALARM_CHECK_INTERVAL_SECONDS)
