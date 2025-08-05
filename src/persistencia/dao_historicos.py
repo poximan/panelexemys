@@ -3,21 +3,21 @@ import pandas as pd
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from .dao_base import get_db_connection, db_lock
-from .dao_grd import grd_dao # Se necesita para la validación de GRD_ID
+from .dao_grd import grd_dao # Se necesita para la validacion de GRD_ID
 
 class HistoricosDAO:
     def insert_historico_reading(self, grd_id: int, timestamp: str, conectado_value: int):
         """
-        Inserta una nueva lectura procesada para un GRD_ID específico en la tabla 'historicos'.
+        Inserta una nueva lectura procesada para un GRD_ID especifico en la tabla 'historicos'.
         Primero verifica que el GRD_ID exista en la tabla 'grd'.
         """
         conn = None
         with db_lock:
             try:
-                # Lógica de validación: el GRD_ID debe existir en la tabla 'grd'.
+                # Logica de validacion: el GRD_ID debe existir en la tabla 'grd'.
                 if not grd_dao.grd_exists(grd_id):
                     print(f"Error: No se pudo insertar el dato para GRD ID {grd_id} ({timestamp}). Equipo desconocido: el ID no existe en la tabla 'grd'.")
-                    return # No se procede con la inserción si el GRD no existe
+                    return # No se procede con la insercion si el GRD no existe
 
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -39,7 +39,7 @@ class HistoricosDAO:
 
     def get_latest_connected_state_for_grd(self, grd_id: int):
         """
-        Recupera el último valor 'conectado' (binario) registrado para un GRD_ID específico.
+        Recupera el ultimo valor 'conectado' (binario) registrado para un GRD_ID especifico.
         Retorna None si no hay datos para ese GRD_ID.
         """
         conn = None
@@ -56,7 +56,7 @@ class HistoricosDAO:
                 result = cursor.fetchone()
                 return result['conectado'] if result else None
             except sqlite3.Error as e:
-                print(f"Error al obtener el último estado 'conectado' para GRD ID {grd_id}: {e}")
+                print(f"Error al obtener el ultimo estado 'conectado' para GRD ID {grd_id}: {e}")
                 return None
             finally:
                 if conn:
@@ -64,10 +64,10 @@ class HistoricosDAO:
 
     def get_latest_states_for_all_grds(self) -> dict: # Agregado 'self'
         """
-        Recupera el último estado 'conectado' para cada GRD_ID existente en la tabla 'historicos',
-        excluyendo aquellos GRD cuya descripción en la tabla 'grd' sea 'reserva'.
-        Retorna un diccionario donde la clave es el grd_id y el valor es su último estado (0 o 1).
-        Si un GRD no tiene registros o es de 'reserva', no estará en el diccionario.
+        Recupera el ultimo estado 'conectado' para cada GRD_ID existente en la tabla 'historicos',
+        excluyendo aquellos GRD cuya descripcion en la tabla 'grd' sea 'reserva'.
+        Retorna un diccionario donde la clave es el grd_id y el valor es su ultimo estado (0 o 1).
+        Si un GRD no tiene registros o es de 'reserva', no estara en el diccionario.
         """
         conn = None
         latest_states = {}
@@ -93,7 +93,7 @@ class HistoricosDAO:
                 for row in rows:
                     latest_states[row['id_grd']] = row['conectado']
             except sqlite3.Error as e:
-                print(f"Error al obtener los últimos estados para todos los GRD (excluyendo reservas): {e}")
+                print(f"Error al obtener los ultimos estados para todos los GRD (excluyendo reservas): {e}")
             finally:
                 if conn:
                     conn.close()
@@ -101,15 +101,15 @@ class HistoricosDAO:
 
     def get_all_disconnected_grds(self) -> list[dict]: # Agregado 'self'
         """
-        Recupera los GRD_ID, sus descripciones y la estampa de tiempo de su última desconexión
-        para los GRD que están actualmente desconectados (estado 'conectado' = 0),
-        excluyendo aquellos GRD cuya descripción en la tabla 'grd' sea 'reserva'.
-        La estampa de tiempo será la del registro que indica el estado actual de desconexión.
+        Recupera los GRD_ID, sus descripciones y la estampa de tiempo de su ultima desconexion
+        para los GRD que estan actualmente desconectados (estado 'conectado' = 0),
+        excluyendo aquellos GRD cuya descripcion en la tabla 'grd' sea 'reserva'.
+        La estampa de tiempo sera la del registro que indica el estado actual de desconexion.
         
-        Esta función cumple con:
-        1. Traer todos los equipos cuyo ÚLTIMO estado registrado es 'desconectado' (0).
-        2. Excluir equipos cuya descripción en la tabla 'grd' sea 'reserva'.
-        3. Incluir la estampa de tiempo correspondiente a ese ÚLTIMO registro encontrado.
+        Esta funcion cumple con:
+        1. Traer todos los equipos cuyo ULTIMO estado registrado es 'desconectado' (0).
+        2. Excluir equipos cuya descripcion en la tabla 'grd' sea 'reserva'.
+        3. Incluir la estampa de tiempo correspondiente a ese ULTIMO registro encontrado.
         Retorna una lista de diccionarios, ordenada por GRD ID.
         """
         conn = None
@@ -184,8 +184,8 @@ class HistoricosDAO:
 
     def get_weekly_data_for_grd(self, grd_id: int, reference_date_str: str, page_number: int = 0) -> pd.DataFrame:
         """
-        Obtiene los datos históricos de 'conectado' para un GRD_ID y una semana específica,
-        paginado hacia atrás desde una fecha de referencia.
+        Obtiene los datos historicos de 'conectado' para un GRD_ID y una semana especifica,
+        paginado hacia atras desde una fecha de referencia.
         Recupera 'timestamp', 'id_grd' y 'conectado'.
         """
         conn = None
@@ -217,8 +217,8 @@ class HistoricosDAO:
 
     def get_monthly_data_for_grd(self, grd_id: int, reference_date_str: str, page_number: int = 0) -> pd.DataFrame:
         """
-        Obtiene los datos históricos de 'conectado' para un GRD_ID y un mes específico,
-        paginado hacia atrás desde una fecha de referencia.
+        Obtiene los datos historicos de 'conectado' para un GRD_ID y un mes especifico,
+        paginado hacia atras desde una fecha de referencia.
         """
         conn = None
         df = pd.DataFrame()
@@ -260,7 +260,7 @@ class HistoricosDAO:
 
     def get_all_data_for_grd(self, grd_id: int) -> pd.DataFrame:
         """
-        Obtiene todos los datos históricos de 'conectado' para un GRD_ID específico.
+        Obtiene todos los datos historicos de 'conectado' para un GRD_ID especifico.
         """
         conn = None
         with db_lock:
@@ -284,7 +284,7 @@ class HistoricosDAO:
 
     def get_total_weeks_for_grd(self, grd_id: int, reference_date_str: str) -> int:
         """
-        Calcula el número total de semanas de datos históricos disponibles para un GRD_ID específico.
+        Calcula el numero total de semanas de datos historicos disponibles para un GRD_ID especifico.
         """
         conn = None
         with db_lock:
@@ -304,7 +304,7 @@ class HistoricosDAO:
                 current_time = datetime.now() 
 
                 if current_time.date() < min_ts.date(): 
-                    return 0 # Si el primer registro es futuro, no hay semanas "históricas"
+                    return 0 # Si el primer registro es futuro, no hay semanas "historicas"
 
                 total_days = (current_time.date() - min_ts.date()).days
                 total_weeks = (total_days // 7) + 1 
@@ -319,7 +319,7 @@ class HistoricosDAO:
 
     def get_total_months_for_grd(self, grd_id: int, reference_date_str: str) -> int:
         """
-        Calcula el número total de meses de datos históricos disponibles para un GRD_ID específico.
+        Calcula el numero total de meses de datos historicos disponibles para un GRD_ID especifico.
         """
         conn = None
         with db_lock:
@@ -354,5 +354,5 @@ class HistoricosDAO:
                 if conn:
                     conn.close()
 
-# Instancia de la clase para usar sus métodos
+# Instancia de la clase para usar sus metodos
 historicos_dao = HistoricosDAO()

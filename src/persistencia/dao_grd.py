@@ -4,7 +4,7 @@ from .dao_base import get_db_connection, db_lock
 class GrdDAO:
     def insert_grd_description(self, grd_id: int, description: str):
         """
-        Inserta una descripción para un GRD_ID en la tabla 'grd'.
+        Inserta una descripcion para un GRD_ID en la tabla 'grd'.
         Usa INSERT OR IGNORE para no insertar si el ID ya existe.
         """
         conn = None
@@ -18,16 +18,16 @@ class GrdDAO:
                 ''', (grd_id, description))
                 conn.commit()
                 if cursor.rowcount > 0:
-                    print(f"Descripción insertada para GRD ID {grd_id}: '{description}'")
+                    print(f"Descripcion insertada para GRD ID {grd_id}: '{description}'")
             except sqlite3.Error as e:
-                print(f"Error al insertar descripción GRD: {e}")
+                print(f"Error al insertar descripcion GRD: {e}")
             finally:
                 if conn:
                     conn.close()
 
     def get_grd_description(self, grd_id: int):
         """
-        Obtiene la descripción de un GRD_ID.
+        Obtiene la descripcion de un GRD_ID.
         """
         conn = None
         with db_lock:
@@ -38,7 +38,7 @@ class GrdDAO:
                 result = cursor.fetchone()
                 return result['descripcion'] if result else None
             except sqlite3.Error as e:
-                print(f"Error al obtener descripción de GRD {grd_id}: {e}")
+                print(f"Error al obtener descripcion de GRD {grd_id}: {e}")
                 return None
             finally:
                 if conn:
@@ -66,7 +66,7 @@ class GrdDAO:
     def get_all_grds_with_descriptions(self) -> dict:
         """
         Recupera todos los GRD IDs y sus descripciones de la tabla 'grd',
-        excluyendo aquellos cuya descripción sea 'reserva'.
+        excluyendo aquellos cuya descripcion sea 'reserva'.
         Retorna un diccionario en formato {grd_id: descripcion}.
         """
         conn = None
@@ -86,5 +86,5 @@ class GrdDAO:
                     conn.close()
         return grds_data
 
-# Instancia de la clase para usar sus métodos
+# Instancia de la clase para usar sus metodos
 grd_dao = GrdDAO()

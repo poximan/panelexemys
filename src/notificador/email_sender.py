@@ -5,17 +5,17 @@ import config
 
 def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bool:
     """
-    Envía un correo electrónico de alarma utilizando el módulo smtplib.
+    Envia un correo electronico de alarma utilizando el modulo smtplib.
     Ahora acepta una lista de destinatarios o una cadena individual.
 
     Args:
-        recipients (list[str] | str): Una lista de direcciones de correo electrónico
-                                      o una cadena con una única dirección.
+        recipients (list[str] | str): Una lista de direcciones de correo electronico
+                                      o una cadena con una unica direccion.
         subject (str): El asunto principal del correo.
         body (str): El cuerpo del mensaje del correo.
 
     Returns:
-        bool: True si el correo se envió con éxito a todos los destinatarios, False en caso contrario.
+        bool: True si el correo se envio con exito a todos los destinatarios, False en caso contrario.
     """
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     full_subject = f"{config.ALARM_EMAIL_SUBJECT_PREFIX}{subject}"
@@ -26,7 +26,7 @@ def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bo
     elif isinstance(recipients, list):
         recipients_list = recipients
     else:
-        print(f"ERROR: Tipo de destinatario no válido. Debe ser str o list[str]. Se recibió: {type(recipients)}")
+        print(f"ERROR: Tipo de destinatario no valido. Debe ser str o list[str]. Se recibio: {type(recipients)}")
         return False
 
     if not recipients_list:
@@ -41,7 +41,7 @@ def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bo
     msg['To'] = ", ".join(recipients_list) 
 
     server = None
-    sent_successfully = False # Flag para rastrear el éxito del envío
+    sent_successfully = False # Flag para rastrear el exito del envio
 
     try:
         if config.SMTP_USE_TLS:
@@ -52,7 +52,7 @@ def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bo
         
         server.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
         
-        # send_message es la forma más moderna y recomendada con objetos MIME
+        # send_message es la forma mas moderna y recomendada con objetos MIME
         server.send_message(msg) 
         server.quit()
         sent_successfully = True
@@ -66,21 +66,21 @@ def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bo
         print(f"\n--- ERROR al Conectar SMTP ({current_time}) ---")
         print(f"No se pudo conectar al servidor SMTP en {config.SMTP_SERVER}:{config.SMTP_PORT}.")
         print(f"Error: {e}")
-        print("Asegúrate de que el servidor SMTP sea accesible y que el puerto sea correcto.")
+        print("Asegurate de que el servidor SMTP sea accesible y que el puerto sea correcto.")
         print("--------------------------")
     except smtplib.SMTPAuthenticationError as e:
-        print(f"\n--- ERROR de Autenticación SMTP ({current_time}) ---")
+        print(f"\n--- ERROR de Autenticacion SMTP ({current_time}) ---")
         print(f"Las credenciales (usuario/contraseña) no fueron aceptadas para {config.SMTP_USERNAME}.")
         print(f"ASUNTO: {full_subject}")
         print(f"Error: {e}")
-        print("Asegúrate de que las credenciales en config.py sean correctas y que la cuenta permita el envío de correos desde aplicaciones.")
+        print("Asegurate de que las credenciales en config.py sean correctas y que la cuenta permita el envio de correos desde aplicaciones.")
         print("--------------------------")
     except smtplib.SMTPException as e:
         print(f"\n--- ERROR SMTP General ({current_time}) ---")
-        print(f"Ocurrió un error SMTP inesperado al enviar el email a {', '.join(recipients_list)}.")
+        print(f"Ocurrio un error SMTP inesperado al enviar el email a {', '.join(recipients_list)}.")
         print(f"ASUNTO: {full_subject}")
         print(f"Error: {e}")
-        print("Revisa la configuración de tu servidor SMTP y los permisos de la cuenta.")
+        print("Revisa la configuracion de tu servidor SMTP y los permisos de la cuenta.")
         print("--------------------------")
     except Exception as e:
         print(f"\n--- ERROR General al Enviar Email de Alarma ({current_time}) ---")
@@ -91,11 +91,11 @@ def send_alarm_email(recipients: list[str] | str, subject: str, body: str) -> bo
     finally:
         if server:
             try:
-                # server.quit() ya se llama en el bloque try si el envío es exitoso.
-                # Solo llamar si no se salió aún debido a una excepción antes del quit().
+                # server.quit() ya se llama en el bloque try si el envio es exitoso.
+                # Solo llamar si no se salio aun debido a una excepcion antes del quit().
                 if not sent_successfully: 
                     server.quit()
             except Exception:
-                pass # Ignorar errores al cerrar si ya hubo un problema o si el servidor ya está cerrado
+                pass # Ignorar errores al cerrar si ya hubo un problema o si el servidor ya esta cerrado
 
     return sent_successfully

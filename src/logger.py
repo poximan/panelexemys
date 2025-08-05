@@ -4,7 +4,7 @@ from typing import Optional
 class Logosaurio:
     """
     Un servicio simple para registrar mensajes con una estampa de tiempo.
-    Evita registrar mensajes consecutivos que sean idénticos para mantener los logs limpios.
+    Evita registrar mensajes consecutivos que sean identicos para mantener los logs limpios.
     """
     def __init__(self):
         self._last_message: Optional[str] = None
@@ -12,11 +12,11 @@ class Logosaurio:
     def log(self, message: str, origen: str = "ORIG_DESC"):
         """
         Imprime un mensaje formateado con la estampa de tiempo actual,
-        solo si es diferente al último mensaje registrado.
+        solo si es diferente al ultimo mensaje registrado.
         """
         current_message = f"[{origen}] - {message}"
         
-        # Comprueba si el mensaje actual es igual al último
+        # Comprueba si el mensaje actual es igual al ultimo
         if current_message == self._last_message:
             return  # No hace nada si el mensaje es el mismo
 

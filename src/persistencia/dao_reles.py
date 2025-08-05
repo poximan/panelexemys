@@ -12,7 +12,7 @@ class RelesDAO:
 
     def insert_rele_description(self, id_modbus: int, description: str):
         """
-        Inserta una descripción de relé en la tabla 'reles'.
+        Inserta una descripcion de rele en la tabla 'reles'.
         Utiliza INSERT OR IGNORE para evitar duplicados si el id_modbus ya existe,
         permitiendo que el 'id' auto-incremente.
         """
@@ -29,18 +29,18 @@ class RelesDAO:
                 ''', (id_modbus, description))
                 conn.commit()
                 if cursor.rowcount > 0:
-                    print(f"Relé (ID Modbus: {id_modbus}, Desc: '{description}') insertado/asegurado en la tabla 'reles'.")
+                    print(f"Rele (ID Modbus: {id_modbus}, Desc: '{description}') insertado/asegurado en la tabla 'reles'.")
                 # else:
-                #     print(f"Relé (ID Modbus: {id_modbus}) ya existe en la tabla 'reles'.")
+                #     print(f"Rele (ID Modbus: {id_modbus}) ya existe en la tabla 'reles'.")
             except sqlite3.Error as e:
-                print(f"ERROR al insertar relé en la base de datos: {e}")
+                print(f"ERROR al insertar rele en la base de datos: {e}")
             finally:
                 if conn:
                     conn.close()
 
     def get_rele_description(self, id_modbus: int) -> str | None:
         """
-        Obtiene la descripción de un relé por su id_modbus.
+        Obtiene la descripcion de un rele por su id_modbus.
         """
         conn = None
         with db_lock:
@@ -51,7 +51,7 @@ class RelesDAO:
                 result = cursor.fetchone()
                 return result['descripcion'] if result else None # Acceso por nombre de columna
             except sqlite3.Error as e:
-                print(f"ERROR al obtener descripción de relé: {e}")
+                print(f"ERROR al obtener descripcion de rele: {e}")
                 return None
             finally:
                 if conn:
@@ -59,7 +59,7 @@ class RelesDAO:
 
     def rele_exists(self, id_modbus: int) -> bool:
         """
-        Verifica si un relé con el id_modbus dado ya existe en la base de datos.
+        Verifica si un rele con el id_modbus dado ya existe en la base de datos.
         """
         conn = None
         with db_lock:
@@ -69,7 +69,7 @@ class RelesDAO:
                 cursor.execute("SELECT 1 FROM reles WHERE id_modbus = ?", (id_modbus,))
                 return cursor.fetchone() is not None
             except sqlite3.Error as e:
-                print(f"ERROR al verificar existencia de relé: {e}")
+                print(f"ERROR al verificar existencia de rele: {e}")
                 return False
             finally:
                 if conn:
@@ -77,7 +77,7 @@ class RelesDAO:
 
     def get_internal_id_by_modbus_id(self, id_modbus: int) -> int | None:
         """
-        Obtiene el ID interno (clave primaria 'id') de un relé dado su id_modbus.
+        Obtiene el ID interno (clave primaria 'id') de un rele dado su id_modbus.
         Esto es necesario para insertar en tablas que referencian 'reles.id'.
         """
         conn = None
@@ -89,7 +89,7 @@ class RelesDAO:
                 result = cursor.fetchone()
                 return result['id'] if result else None # Acceso por nombre de columna
             except sqlite3.Error as e:
-                print(f"ERROR al obtener ID interno del relé por id_modbus: {e}")
+                print(f"ERROR al obtener ID interno del rele por id_modbus: {e}")
                 return None
             finally:
                 if conn:
@@ -97,8 +97,8 @@ class RelesDAO:
 
     def get_all_reles_with_descriptions(self) -> dict:
         """
-        Recupera todos los IDs Modbus de relés y sus descripciones de la tabla 'reles',
-        excluyendo aquellos cuya descripción sea 'NO APLICA'.
+        Recupera todos los IDs Modbus de reles y sus descripciones de la tabla 'reles',
+        excluyendo aquellos cuya descripcion sea 'NO APLICA'.
         Retorna un diccionario en formato {id_modbus: descripcion}.
         """
         conn = None
@@ -112,11 +112,11 @@ class RelesDAO:
                 for row in rows:
                     reles_data[row['id_modbus']] = row['descripcion']
             except sqlite3.Error as e:
-                print(f"Error al obtener todos los relés con descripciones: {e}")
+                print(f"Error al obtener todos los reles con descripciones: {e}")
             finally:
                 if conn:
                     conn.close()
         return reles_data
 
-# Instancia global del DAO para relés
+# Instancia global del DAO para reles
 reles_dao = RelesDAO()

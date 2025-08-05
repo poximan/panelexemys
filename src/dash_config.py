@@ -9,7 +9,7 @@ from src.componentes.middleware_kpi import get_kpi_panel_layout, register_kpi_pa
 from src.componentes.middleware_histograma import get_controls_and_graph_layout, register_controls_and_graph_callbacks
 from src.componentes.middleware_tabla import get_main_data_table_layout, register_main_data_table_callbacks
 from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
-from src.componentes.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks # <-- ¡NUEVA IMPORTACIÓN!
+from src.componentes.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
 
 
 def configure_dash_app(app: dash.Dash):

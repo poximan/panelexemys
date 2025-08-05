@@ -1,7 +1,7 @@
-import threading                                # Para ejecutar los observadores en hilos separados
+import threading # Para ejecutar los observadores en hilos separados
 from werkzeug.serving import is_running_from_reloader # Importa para detectar el proceso del reloader
 import dash
-from . import dash_config                       # Importa el modulo de configuracion de Dash
+from . import dash_config # Importa el modulo de configuracion de Dash
 from flask import request
 
 from src.persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
@@ -9,9 +9,8 @@ from src.persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO p
 import src.persistencia.ddl_esquema as ddl # Importa el modulo para crear el esquema
 import src.persistencia.sim_poblar as poblador # Importa el modulo de poblamiento
 
-from src.observador.main_observer import start_modbus_orchestrator
+from src.observador.main_observer import start_modbus_orchestrator 
 from src.notificador.alarm_notifier import AlarmNotifier
-from src.notificador.mqtt_client_manager import MqttClientManager
 
 from src.logger import Logosaurio
 import config # Importa la configuracion
@@ -28,9 +27,9 @@ app = dash.Dash(__name__, assets_folder='assets')
 Cuando Dash inicia, escanea todo el app.layout para identificar todos los componentes y sus IDs.
 Si un callback se registra para interactuar con un componente (ya sea como Input, Output o State), Dash espera que ese componente este presente
 en el layout inicial.
-En una SPA, el dashboard_layout no es el app.layout completo desde el principio; es un html.Div que se inserta dinamicamente despues
+En una SPA, el dashboard_layout no es el app.layout completo desde el principio; es un html.Div que se inserta dinamicamente despues 
 de que el usuario navega.
-Al establecer suppress_callback_exceptions=True, le dices a Dash: "Esta bien si no encuentras todos los componentes de los callbacks
+Al establecer suppress_callback_exceptions=True, le dices a Dash: "Esta bien si no encuentras todos los componentes de los callbacks 
 en el layout inicial. Espera a que se carguen dinamicamente".
 """
 app.config['suppress_callback_exceptions'] = True
@@ -40,7 +39,7 @@ server = app.server
 
 """
 plotly usa dash para su parte grafica, que a su vez usa flash como microframework para http.
-en este sentido, implementamos un decorador @server.before_request para  registra una función
+en este sentido, implementamos un decorador @server.before_request para  registra una función
 que se ejecutará antes que la solicitud llegue al servidor.
 """
 @server.before_request
@@ -54,7 +53,7 @@ def log_user_ip():
     # Si la IP es la del host local, salir
     if ip_addr == '127.0.0.1' or ip_addr == '172.17.0.1' :
         return
-
+    
     # Registra la IP, el método HTTP y la ruta de la solicitud
     logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="HTTP/GET")
 
@@ -68,16 +67,16 @@ if __name__ == '__main__':
     if not is_running_from_reloader():
         print("1º: Es el proceso principal. Realizando tareas de inicializacion...")
 
-        # 1. Crear una única instancia de Logosaurio para toda la aplicación
+        # 1. Crear una única instancia de Logosaurio para toda la aplicación        
         logger_app.log("Iniciando aplicación. Creando logger central...", origen="APP")
-
+        
         logger_app.log("2º: Asegurando que los equipos definidos en config.GRD_DESCRIPTIONS existan en BD...", origen="APP")
         for grd_id, description in config.GRD_DESCRIPTIONS.items():
             dao_grd.insert_grd_description(grd_id, description)
         logger_app.log("Equipos GRD iniciales asegurados en la base de datos.", origen="APP")
 
         logger_app.log("3º: Asegurando que los reles definidos en config.ESCLAVOS_MB existan en BD...", origen="APP")
-        for rele_id, description in config.ESCLAVOS_MB.items():
+        for rele_id, description in config.ESCLAVOS_MB.items():            
             if not description.strip().upper().startswith("NO APLICA"):
                 dao_reles.insert_rele_description(rele_id, description)
         logger_app.log("Reles iniciales asegurados en la base de datos.", origen="APP")
@@ -88,7 +87,7 @@ if __name__ == '__main__':
             poblador.populate_database_conditionally()
         else:
             logger_app.log("No se poblara la base de datos con datos de ejemplo.", origen="APP")
-
+        
         # Lanzar el orquestador modbus
         logger_app.log("4º: Lanzando el orquestador Modbus en un hilo separado...", origen="APP")
         modbus_orchestrator_thread = threading.Thread(
@@ -107,18 +106,9 @@ if __name__ == '__main__':
         )
         alarm_thread.start()
 
-        # Lanzar el cliente MQTT en un hilo separado
-        logger_app.log("6º: Lanzando el cliente MQTT en un hilo separado...", origen="APP")
-        mqtt_manager_instance = MqttClientManager(logger=logger_app)
-        mqtt_thread = threading.Thread(
-            target=mqtt_manager_instance.start_mqtt_loop,
-            daemon=True
-        )
-        mqtt_thread.start()
-
     else:
         # Mensaje para el proceso del reloader (cuando debug=True)
         logger_app.log("Es el proceso del reloader. La inicializacion de la BD y los observadores se omiten.", origen="APP")
-
+    
     logger_app.log("Iniciando servidor Dash...", origen="APP")
-    app.run_server(debug=True, host='0.0.0.0')
+    app.run_server(debug=True, host='0.0.0.0', port=8051)

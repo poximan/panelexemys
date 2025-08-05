@@ -1,19 +1,19 @@
 import sqlite3
-from .dao_base import get_db_connection, db_lock # Asegúrate de que db_lock esté definido y funcione correctamente
+from .dao_base import get_db_connection, db_lock # Asegurate de que db_lock este definido y funcione correctamente
 
 class MensajesEnviadosDAO:
     def insert_sent_message(self, subject: str, body: str, timestamp: str, message_type: str, recipients: str | list[str], success: bool):
         """
-        Inserta un registro de un email que se intentó enviar en la tabla 'mensajes_enviados'.
-        La columna 'recipient' almacenará todos los destinatarios como una cadena separada por comas.
+        Inserta un registro de un email que se intento enviar en la tabla 'mensajes_enviados'.
+        La columna 'recipient' almacenara todos los destinatarios como una cadena separada por comas.
 
         Args:
             subject (str): El asunto del email.
             body (str): El cuerpo del mensaje del email.
-            timestamp (str): La estampa de tiempo del momento de la inserción (formato YYYY-MM-DD HH:MM:SS).
+            timestamp (str): La estampa de tiempo del momento de la insercion (formato YYYY-MM-DD HH:MM:SS).
             message_type (str): Un identificador del tipo de mensaje (ej. 'global_connectivity_alarm', 'individual_grd_alarm_X').
-            recipients (str | list[str]): El/los destinatario(s) del email. Se convertirá a una cadena única.
-            success (bool): True si el email se envió con éxito, False en caso contrario.
+            recipients (str | list[str]): El/los destinatario(s) del email. Se convertira a una cadena unica.
+            success (bool): True si el email se envio con exito, False en caso contrario.
         """
         conn = None
         
@@ -42,5 +42,5 @@ class MensajesEnviadosDAO:
                 if conn:
                     conn.close()
 
-# Instancia de la clase para usar sus métodos
+# Instancia de la clase para usar sus metodos
 mensajes_enviados_dao = MensajesEnviadosDAO()

@@ -1,7 +1,7 @@
 import sqlite3
 import os
 import threading
-import config # Importa la configuración
+import config # Importa la configuracion
 
 # Rutas de la base de datos usando config.py
 DATABASE_DIR = config.DATABASE_DIR
@@ -14,7 +14,7 @@ def create_database_schema():
     """
     Crea el directorio 'data' si no existe y las tablas 'grd', 'historicos',
     'mensajes_enviados', 'reles' y 'fallas_reles' en la base de datos SQLite,
-    incluyendo las claves foráneas.
+    incluyendo las claves foraneas.
     """
     if not os.path.exists(DATABASE_DIR):
         os.makedirs(DATABASE_DIR)
@@ -26,7 +26,7 @@ def create_database_schema():
             conn = sqlite3.connect(DATABASE_FILE)
             cursor = conn.cursor()
 
-            # Habilitar el soporte para claves foráneas
+            # Habilitar el soporte para claves foraneas
             cursor.execute("PRAGMA foreign_keys = ON;")
 
             # 1. Crear tabla 'grd'
@@ -38,7 +38,7 @@ def create_database_schema():
             ''')
             print("Tabla 'grd' asegurada.")
 
-            # 2. Crear tabla 'historicos' con la clave foránea
+            # 2. Crear tabla 'historicos' con la clave foranea
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS historicos (
                     timestamp TEXT NOT NULL,
@@ -48,7 +48,7 @@ def create_database_schema():
                     FOREIGN KEY (id_grd) REFERENCES grd(id)
                 )
             ''')
-            print("Tabla 'historicos' asegurada con clave foránea.")
+            print("Tabla 'historicos' asegurada con clave foranea.")
 
             # 3. Crear tabla 'mensajes_enviados'
             cursor.execute('''
@@ -88,7 +88,7 @@ def create_database_schema():
                     FOREIGN KEY (id_rele) REFERENCES reles(id)
                 )
             ''')
-            print("Tabla 'fallas_reles' asegurada con clave foránea.")
+            print("Tabla 'fallas_reles' asegurada con clave foranea.")
 
             conn.commit()
             print(f"Esquema de base de datos en {DATABASE_FILE} creado/asegurado.")

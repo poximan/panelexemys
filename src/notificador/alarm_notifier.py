@@ -11,7 +11,7 @@ import config
 class AlarmNotifier:
     """
     Clase principal para monitorear y notificar sobre el estado de las alarmas.
-    Encapsula la lógica de verificación de alarmas globales e individuales de GRD.
+    Encapsula la logica de verificacion de alarmas globales e individuales de GRD.
     """
 
     def __init__(self, logger: Logosaurio):
@@ -28,7 +28,7 @@ class AlarmNotifier:
         self.exclusion_file_path = os.path.join(script_dir, 'grd_exclusion_list.txt')
     
     def _load_excluded_grd_ids(self):
-        """Carga los IDs de GRD de un archivo de texto en la lista de exclusión."""
+        """Carga los IDs de GRD de un archivo de texto en la lista de exclusion."""
         self.excluded_grd_ids.clear()
         if not os.path.exists(self.exclusion_file_path):
             self.logger.log(
@@ -51,7 +51,7 @@ class AlarmNotifier:
             )
 
     def _check_global_connectivity_alarm(self, current_percentage: float):
-        """Verifica la condición de alarma de conectividad global."""
+        """Verifica la condicion de alarma de conectividad global."""
         if current_percentage < config.GLOBAL_THRESHOLD_ROJO:
             if self.global_connectivity_alarm_state['start_time'] is None:
                 self.global_connectivity_alarm_state['start_time'] = datetime.now()

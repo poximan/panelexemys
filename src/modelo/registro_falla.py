@@ -63,7 +63,7 @@ class RegistroFalla:
             )
 
     def _parse_date_components(self, word: int):
-        """Decodifica mes, día de la semana y día del mes de 0x0801."""
+        """Decodifica mes, dia de la semana y dia del mes de 0x0801."""
         self.fault_month: int = ((word >> 8) & 0x0F)
         day_byte_lo = word & 0xFF
         self.fault_day_of_week: int = ((day_byte_lo & 0xE0) >> 5)
@@ -90,8 +90,8 @@ class RegistroFalla:
         validations = [
             (self.fault_year, "Año", 1994, 2093),
             (self.fault_month, "Mes", 1, 12),
-            (self.fault_day, "Día del mes", 1, 31),
-            (self.fault_day_of_week, "Día de la semana", 1, 7),
+            (self.fault_day, "Dia del mes", 1, 31),
+            (self.fault_day_of_week, "Dia de la semana", 1, 7),
             (self.fault_season, "Temporada", 0, 1),
             (self.fault_hour, "Hora", 0, 23),
             (self.fault_minute, "Minuto", 0, 59),
@@ -112,7 +112,7 @@ class RegistroFalla:
         self.fault_datetime: Optional[datetime] = None
         if not is_date_components_valid or self.fault_year is None:
             self.logger.log(
-                "Componentes de fecha/hora inválidos. No se creará el objeto datetime.",
+                "Componentes de fecha/hora invalidos. No se creara el objeto datetime.",
                 origen="MODELO"
             )
             return
@@ -130,14 +130,14 @@ class RegistroFalla:
         except ValueError as e:
             self.logger.log(
                 f"Error al crear datetime: {e}. Valores: Año={self.fault_year}, Mes={self.fault_month}, "
-                f"Día={self.fault_day}, Hora={self.fault_hour}, Minuto={self.fault_minute}, "
+                f"Dia={self.fault_day}, Hora={self.fault_hour}, Minuto={self.fault_minute}, "
                 f"Segundo={self.fault_seconds}, Microsegundo={self.fault_microseconds}",
                 origen="MODELO"
             )
     
     def _parse_remaining_registers(self):
         """Decodifica el resto de los registros de falla."""
-        # Se usa un diccionario para asignar nombres a los índices, mejorando la legibilidad.
+        # Se usa un diccionario para asignar nombres a los indices, mejorando la legibilidad.
         self.ignored_word_6: int = self._raw_registers[5]
         self.active_group: int = self._raw_registers[6]
         self.involved_phases_type: int = self._raw_registers[7]
@@ -150,7 +150,7 @@ class RegistroFalla:
         self.recognized: bool = bool(self._raw_registers[14])
 
     def __repr__(self) -> str:
-        """Representación para depuración."""
+        """Representacion para depuracion."""
         date_str = self.fault_datetime.isoformat() if self.fault_datetime else "N/A"
         return (f"RegistroFalla(Numero={self.fault_number}, Fecha={date_str}, "
                 f"Tipo={self.fault_type}, Fases={self.involved_phases_type}, "

@@ -150,6 +150,6 @@ def register_reles_micom_callbacks(app):
                     )
 
         if not fault_tables:
-            return html.P("No hay datos de fallas disponibles para mostrar o no hay relés configurados.", className="text-gray-600 mt-4")
+            return html.P("No hay datos de fallas disponibles para mostrar o no hay reles configurados.", className="text-gray-600 mt-4")
         
         return fault_tables

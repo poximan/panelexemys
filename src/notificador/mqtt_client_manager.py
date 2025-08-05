@@ -21,49 +21,49 @@ class MqttClientManager:
         """
         if rc == 0:
             self.logger.log("MQTT Client Manager: Conectado al broker MQTT exitosamente.", origen="NOTIF/MQTT")
-            # Suscribirse al tópico 'estados/' una vez conectado
+            # Suscribirse al topico 'estados/' una vez conectado
             self.subscribe(config.MQTT_TOPIC_ESTADOS)
         else:
-            self.logger.log(f"MQTT Client Manager: Fallo en la conexión, código: {rc}", origen="NOTIF/MQTT", nivel="ERROR")
+            self.logger.log(f"MQTT Client Manager: Fallo en la conexion, codigo: {rc}", origen="NOTIF/MQTT")
 
     def _on_message(self, client, userdata, msg):
         """
-        Callback que se ejecuta cuando se recibe un mensaje de un tópico suscrito.
+        Callback que se ejecuta cuando se recibe un mensaje de un topico suscrito.
         """
-        self.logger.log(f"MQTT Client Manager: Mensaje recibido - Tópico: {msg.topic}, Payload: {msg.payload.decode()}", origen="NOTIF/MQTT")
+        self.logger.log(f"MQTT Client Manager: Mensaje recibido - Topico: {msg.topic}, Payload: {msg.payload.decode()}", origen="NOTIF/MQTT")
 
-        # Lógica para el tópico 'estados/'
+        # Logica para el topico 'estados/'
         if msg.topic == config.MQTT_TOPIC_ESTADOS:
             # Por ahora, devuelve un texto fijo.
             fixed_response = "Estado recibido: OK. Este es un mensaje de prueba fijo."
             self.logger.log(f"MQTT Client Manager: Respuesta fija para '{config.MQTT_TOPIC_ESTADOS}': {fixed_response}", origen="NOTIF/MQTT")
-            # Podrías publicar esta respuesta a otro tópico si fuera necesario, por ejemplo:
+            # Podrias publicar esta respuesta a otro topico si fuera necesario, por ejemplo:
             # self.publish("estados/respuesta", fixed_response)
-        # Puedes añadir más lógica para otros tópicos aquí
+        # Puedes añadir mas logica para otros topicos aqui
 
     def subscribe(self, topic: str, qos: int = 0):
         """
-        Suscribe el cliente a un tópico específico.
+        Suscribe el cliente a un topico especifico.
         """
         if self.client and self.client.is_connected():
             result, mid = self.client.subscribe(topic, qos)
             if result == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.log(f"MQTT Client Manager: Suscrito al tópico '{topic}' (mid={mid})", origen="NOTIF/MQTT")
+                self.logger.log(f"MQTT Client Manager: Suscrito al topico '{topic}' (mid={mid})", origen="NOTIF/MQTT")
             else:
-                self.logger.log(f"MQTT Client Manager: Error al suscribirse al tópico '{topic}': {result}", origen="NOTIF/MQTT", nivel="ERROR")
+                self.logger.log(f"MQTT Client Manager: Error al suscribirse al topico '{topic}': {result}", origen="NOTIF/MQTT")
         else:
-            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede suscribir.", origen="NOTIF/MQTT", nivel="ADVERTENCIA")
+            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede suscribir.", origen="NOTIF/MQTT")
 
     def publish(self, topic: str, payload: str, qos: int = 0, retain: bool = False):
         """
-        Publica un mensaje en un tópico específico.
+        Publica un mensaje en un topico especifico.
         """
         if self.client and self.client.is_connected():
             info = self.client.publish(topic, payload, qos, retain)
             info.wait_for_publish() # Espera a que el mensaje sea publicado
             self.logger.log(f"MQTT Client Manager: Mensaje publicado en '{topic}': '{payload}'", origen="NOTIF/MQTT")
         else:
-            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede publicar.", origen="NOTIF/MQTT", nivel="ADVERTENCIA")
+            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede publicar.", origen="NOTIF/MQTT")
 
     def start_mqtt_loop(self):
         """
@@ -77,7 +77,7 @@ class MqttClientManager:
             self.logger.log("MQTT Client Manager: Bucle de red MQTT iniciado.", origen="NOTIF/MQTT")
             
             # Mantener el hilo principal vivo mientras el bucle MQTT corre
-            # Esto es para que el hilo no muera inmediatamente si no hay otra lógica
+            # Esto es para que el hilo no muera inmediatamente si no hay otra logica
             # en este mismo hilo que lo mantenga activo.
             while not self._stop_event.is_set():
                 time.sleep(1) # Pequeña pausa para no consumir CPU innecesariamente
@@ -86,11 +86,11 @@ class MqttClientManager:
             self.mqtt_driver.disconnect()
             self.logger.log("MQTT Client Manager: Bucle de red MQTT detenido.", origen="NOTIF/MQTT")
         else:
-            self.logger.log("MQTT Client Manager: No se pudo iniciar el bucle MQTT, conexión fallida.", origen="NOTIF/MQTT", nivel="ERROR")
+            self.logger.log("MQTT Client Manager: No se pudo iniciar el bucle MQTT, conexion fallida.", origen="NOTIF/MQTT")
 
     def stop_mqtt_loop(self):
         """
         Detiene el bucle de red del cliente MQTT.
         """
         self._stop_event.set()
-        self.logger.log("MQTT Client Manager: Señal de detención enviada al bucle MQTT.", origen="NOTIF/MQTT")
+        self.logger.log("MQTT Client Manager: Señal de detencion enviada al bucle MQTT.", origen="NOTIF/MQTT")

@@ -2,14 +2,14 @@
 
 /* --- Estilos Globales y Contenedor Principal de la SPA --- */
 .main-app-container {
-    /* Nuevo contenedor para toda la aplicación SPA */
+    /* Nuevo contenedor para toda la aplicacion SPA */
     font-family: 'Inter', sans-serif;
     padding: 0;
-    /* Quitamos el padding del contenedor principal si la barra de navegación es "full-width" */
+    /* Quitamos el padding del contenedor principal si la barra de navegacion es "full-width" */
     max-width: 1200px;
-    /* Limita el ancho máximo de toda la aplicación */
+    /* Limita el ancho maximo de toda la aplicacion */
     margin: 0 auto;
-    /* Centra la aplicación en la pantalla */
+    /* Centra la aplicacion en la pantalla */
     background-color: #f4f7f9;
     /* Un color de fondo suave para toda la app */
     min-height: 100vh;
@@ -23,32 +23,32 @@
     color: #2c3e50;
     margin-bottom: 30px;
     font-size: 2.5em;
-    /* Un poco más grande para los títulos principales */
+    /* Un poco mas grande para los titulos principales */
     font-weight: 700;
 }
 
 .modem-link {
     display: block;
-    /* Para que ocupe su propia línea y podamos centrarlo */
+    /* Para que ocupe su propia linea y podamos centrarlo */
     text-align: right;
     margin-top: -50px;
     margin-bottom: 30px;
-    /* Ajusta este valor si necesitas más o menos espacio vertical */    
+    /* Ajusta este valor si necesitas mas o menos espacio vertical */    
     font-size: 1.1em;
     color: #007bff;
-    /* Un azul de enlace estándar */
+    /* Un azul de enlace estandar */
     text-decoration: underline;
     /* Para que se vea claramente como un enlace */
     transition: color 0.5s ease;
-    /* Transición suave al pasar el mouse */
+    /* Transicion suave al pasar el mouse */
 }
 
 .modem-link:hover {
     color: #0056b3;
-    /* Un azul más oscuro al pasar el mouse */
+    /* Un azul mas oscuro al pasar el mouse */
 }
 
-/* --- Estilos para la Barra de Navegación SPA --- */
+/* --- Estilos para la Barra de Navegacion SPA --- */
 .navbar {
     display: flex;
     justify-content: flex-start;
@@ -62,12 +62,12 @@
     border-radius: 8px 8px 0 0;
     /* Bordes redondeados en la parte superior */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    /* Sombra más pronunciada para la barra */
+    /* Sombra mas pronunciada para la barra */
     position: sticky;
-    /* Fija la barra de navegación en la parte superior */
+    /* Fija la barra de navegacion en la parte superior */
     top: 0;
     z-index: 1000;
-    /* Asegura que esté por encima de otros elementos */
+    /* Asegura que este por encima de otros elementos */
 }
 
 .nav-link {
@@ -75,7 +75,7 @@
     /* Color de texto claro */
     text-decoration: none;
     padding: 10px 18px;
-    /* Un poco más de padding para los enlaces */
+    /* Un poco mas de padding para los enlaces */
     margin-right: 15px;
     border-radius: 5px;
     transition: background-color 0.3s ease, color 0.3s ease;
@@ -84,7 +84,7 @@
 
 .nav-link:hover {
     background-color: #2c3e50;
-    /* Un tono más oscuro al pasar el ratón */
+    /* Un tono mas oscuro al pasar el raton */
     color: #ffffff;
 }
 
@@ -93,7 +93,7 @@
     height: 1px;
     background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0));
     margin: -10px 0 20px 0;
-    /* Ajusta el margen para que esté más cerca de la navbar */
+    /* Ajusta el margen para que este mas cerca de la navbar */
     visibility: hidden;
     /* Ocultamos el separador horizontal si la navbar ya tiene bottom-margin */
 }
@@ -112,13 +112,13 @@
     background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    /* Sombra más ligera para los elementos individuales */
+    /* Sombra mas ligera para los elementos individuales */
     padding: 20px;
     text-align: center;    
 }
 
-/* Ajuste de distribución para KPI Panel: 30% | 10% (15% original -> 10% para cuadrar a 100) | 60% (55% original -> 60%) */
-/* Nota: Se ajusta a flex: 3 | 1 | 6 para que sumen 10, y así tener 30%, 10%, 60% */
+/* Ajuste de distribucion para KPI Panel: 30% | 10% (15% original -> 10% para cuadrar a 100) | 60% (55% original -> 60%) */
+/* Nota: Se ajusta a flex: 3 | 1 | 6 para que sumen 10, y asi tener 30%, 10%, 60% */
 .gauge-graph-container {
     flex: 3;
     /* ~30% */
@@ -142,13 +142,13 @@
     font-weight: 600;
 }
 
-/* Estilos para el semáforo */
+/* Estilos para el semaforo */
 .traffic-light-circles-wrapper {
     display: flex;
     gap: 15px;
     margin-top: 20px;
     flex-direction: column;
-    /* Ya está en columna, ¡perfecto! */
+    /* Ya esta en columna, ¡perfecto! */
     align-items: center;
 }
 
@@ -184,7 +184,7 @@
 
 .disconnected-table-header-cell {
     background-color: #e9ecef;
-    /* Un color de cabecera más moderno */
+    /* Un color de cabecera mas moderno */
     padding: 10px 15px;
     text-align: left;
     border-bottom: 1px solid #dee2e6;
@@ -194,14 +194,14 @@
     /* Fija las cabeceras al hacer scroll */
     top: 0;
     z-index: 1;
-    /* Asegura que la cabecera esté por encima del contenido al hacer scroll */
+    /* Asegura que la cabecera este por encima del contenido al hacer scroll */
 }
 
 .disconnected-table-data-cell,
 .disconnected-table-timestamp-cell {
     padding: 10px 15px;
     border-bottom: 1px solid #f8f9fa;
-    /* Líneas divisorias más suaves */
+    /* Lineas divisorias mas suaves */
     color: #495057;
     font-size: 0.9em;
 }
@@ -213,7 +213,7 @@
     font-style: italic;
 }
 
-/* --- CLASES PARA EL LAYOUT DE CONTROLES Y GRÁFICO --- */
+/* --- CLASES PARA EL LAYOUT DE CONTROLES Y GRAFICO --- */
 .controls-and-graph-container {
     display: flex;
     flex-wrap: wrap;
@@ -273,7 +273,7 @@
     border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-    /* Añadir border-color a la transición */
+    /* Añadir border-color a la transicion */
     flex-grow: 1;
     /* Para que los botones se distribuyan uniformemente */
 }
@@ -319,7 +319,7 @@
     background-color: #cccccc;
     cursor: not-allowed;
     opacity: 0.7;
-    /* Ligeramente transparente cuando está deshabilitado */
+    /* Ligeramente transparente cuando esta deshabilitado */
 }
 
 .warning-text,
@@ -341,7 +341,7 @@
 }
 
 
-/* --- ESTILOS PARA LA TABLA DE DETALLES (al pie de página) --- */
+/* --- ESTILOS PARA LA TABLA DE DETALLES (al pie de pagina) --- */
 .grd-data-title {
     text-align: center;
     color: #2c3e50;
@@ -366,7 +366,7 @@
 
 .table-header-cell {
     background-color: #e9ecef;
-    /* Un color de cabecera más moderno */
+    /* Un color de cabecera mas moderno */
     padding: 10px 15px;
     text-align: left;
     border-bottom: 1px solid #dee2e6;
@@ -378,7 +378,7 @@
 .table-data-cell-mono {
     padding: 10px 15px;
     border-bottom: 1px solid #f8f9fa;
-    /* Líneas divisorias más suaves */
+    /* Lineas divisorias mas suaves */
     color: #495057;
 }
 
@@ -409,7 +409,7 @@
 /* ============================================================ */
 /* ============================================================ */
 /* ============================================================ */
-/* --- Estilos para la Pestaña de Relés MiCOM ----------------- */
+/* --- Estilos para la Pestaña de Reles MiCOM ----------------- */
 /* ============================================================ */
 /* ============================================================ */
 

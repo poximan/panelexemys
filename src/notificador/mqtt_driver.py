@@ -5,7 +5,7 @@ import config
 
 class MqttDriver:
     """
-    Clase para gestionar la conexión de bajo nivel con el broker MQTT.
+    Clase para gestionar la conexion de bajo nivel con el broker MQTT.
     Configura el cliente MQTT con opciones de SSL, usuario y contraseña.
     """
     def __init__(self, logger: Logosaurio):
@@ -16,7 +16,7 @@ class MqttDriver:
     def connect(self) -> mqtt.Client:
         """
         Intenta conectar el cliente MQTT al broker.
-        Retorna la instancia del cliente MQTT si la conexión es exitosa.
+        Retorna la instancia del cliente MQTT si la conexion es exitosa.
         """
         if self._is_connected and self.client and self.client.is_connected():
             self.logger.log("MQTT Driver: Cliente ya conectado.", origen="NOTIF/MQTT")
@@ -27,10 +27,10 @@ class MqttDriver:
             
             self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2) # Usar API v2
 
-            # Configuración de credenciales
+            # Configuracion de credenciales
             self.client.username_pw_set(config.MQTT_BROKER_USERNAME, config.MQTT_BROKER_PASSWORD)
 
-            # Configuración de TLS/SSL
+            # Configuracion de TLS/SSL
             if config.MQTT_USE_TLS:
                 self.client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2) # Forzar TLSv1.2 para HiveMQ Cloud
                 self.logger.log("MQTT Driver: TLS/SSL configurado.", origen="NOTIF/MQTT")
@@ -40,11 +40,11 @@ class MqttDriver:
             # Conectar al broker
             self.client.connect(config.MQTT_BROKER_HOST, config.MQTT_BROKER_PORT, 60) # Keepalive de 60 segundos
             self._is_connected = True
-            self.logger.log("MQTT Driver: Conexión exitosa con el broker MQTT.", origen="NOTIF/MQTT")
+            self.logger.log("MQTT Driver: Conexion exitosa con el broker MQTT.", origen="NOTIF/MQTT")
             return self.client
 
         except Exception as e:
-            self.logger.log(f"MQTT Driver: Error al conectar con el broker MQTT: {e}", origen="NOTIF/MQTT", nivel="ERROR")
+            self.logger.log(f"MQTT Driver: Error al conectar con el broker MQTT: {e}", origen="NOTIF/MQTT")
             self._is_connected = False
             return None
 
@@ -67,6 +67,6 @@ class MqttDriver:
 
     def is_connected(self) -> bool:
         """
-        Verifica si el cliente MQTT está conectado.
+        Verifica si el cliente MQTT esta conectado.
         """
         return self._is_connected and self.client and self.client.is_connected()

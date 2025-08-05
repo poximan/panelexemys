@@ -14,11 +14,11 @@ STATE_TEXT_MAP = {0: "Desconectado", 1: "Conectado"}
 
 def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
     """
-    Define el layout para los controles (dropdown, botones de tiempo, paginación)
-    y el gráfico principal de conexión.
+    Define el layout para los controles (dropdown, botones de tiempo, paginacion)
+    y el grafico principal de conexion.
     """
     return html.Div(className='controls-and-graph-container', children=[
-        # Contenedor para Dropdown y Botones de Tiempo/Paginación
+        # Contenedor para Dropdown y Botones de Tiempo/Paginacion
         html.Div(className='controls-panel', children=[
             html.Div(className='dropdown-container', children=[
                 html.Label("Seleccionar GRD", className='control-label'),
@@ -48,12 +48,12 @@ def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
             ]),
         ]),
 
-        # Contenedor para el Gráfico Principal
+        # Contenedor para el Grafico Principal
         html.Div(className='main-graph-section', children=[
             # Mensaje de advertencia si no hay equipos configurados
             html.Div(id='no-grd-warning', className='no-grd-warning',
                      children="ADVERTENCIA: No se han encontrado equipos GRD en la base de datos para consulta." if not db_grd_descriptions else ""),
-            # Gráfico principal del estado 'conectado'
+            # Grafico principal del estado 'conectado'
             dcc.Graph(
                 id='connected-wave-graph',
                 className='connected-graph-container',
@@ -65,8 +65,8 @@ def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
 
 def register_controls_and_graph_callbacks(app: dash.Dash):
     """
-    Registra los callbacks relacionados con los controles de selección
-    y el gráfico principal de conexión.
+    Registra los callbacks relacionados con los controles de seleccion
+    y el grafico principal de conexion.
     """
 
     @app.callback(
@@ -187,7 +187,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
 
     @app.callback(
         Output('connected-wave-graph', 'figure'),
-        Output('no-grd-warning', 'children'), # Actualizamos el mensaje de advertencia del gráfico
+        Output('no-grd-warning', 'children'), # Actualizamos el mensaje de advertencia del grafico
         [Input('time-window-state', 'data'),
          Input('interval-component', 'n_intervals'), # Se sigue actualizando con el intervalo
          Input('connected-wave-graph', 'relayoutData')]
@@ -207,7 +207,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
             return fig, no_grd_message # Retornamos el mensaje para el Div de advertencia
 
         if selected_grd_id is None:
-            default_message = "Por favor, seleccione un equipo GRD del menú desplegable."
+            default_message = "Por favor, seleccione un equipo GRD del menu desplegable."
             fig = go.Figure(data=[], layout=go.Layout(
                 title={'text': default_message, 'font': dict(family="Inter", size=20, color="#333")},
                 xaxis={'visible': False}, yaxis={'visible': False}, height=400,
@@ -228,10 +228,10 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
 
         if time_window == '1sem':
             df = dao.get_weekly_data_for_grd(selected_grd_id, today_str, page_number)
-            grd_title_period = f"Semana {page_number + 1} (última semana al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
+            grd_title_period = f"Semana {page_number + 1} (ultima semana al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
         elif time_window == '1mes':
             df = dao.get_monthly_data_for_grd(selected_grd_id, today_str, page_number)
-            grd_title_period = f"Mes {page_number + 1} (último mes al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
+            grd_title_period = f"Mes {page_number + 1} (ultimo mes al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
             xaxis_tickformat = "%d/%m/%y"
         elif time_window == 'todo':
             df = dao.get_all_data_for_grd(selected_grd_id)
@@ -241,7 +241,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
             xaxis_tickangle = 0
 
         grd_description_for_title = grd_dao.get_grd_description(selected_grd_id)
-        grd_title_text = f"Histórico de Conexión - {grd_title_period}" if grd_description_for_title else f"Histórico de Conexión - GRD {selected_grd_id} - {grd_title_period}"
+        grd_title_text = f"Historico de Conexion - {grd_title_period}" if grd_description_for_title else f"Historico de Conexion - GRD {selected_grd_id} - {grd_title_period}"
 
         traces = []
         shapes = []
@@ -308,7 +308,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
                 go.Scatter(
                     x=plot_x_line, y=plot_y_line, mode='lines',
                     line=dict(color='rgba(0,0,0,0)', width=0),
-                    name='Estado de Conexión', customdata=custom_hover_data_for_line,
+                    name='Estado de Conexion', customdata=custom_hover_data_for_line,
                     hovertemplate="<b>Fecha/Hora:</b> %{x|%Y-%m-%d %H:%M:%S}<br><b>Estado:</b> %{customdata}<extra></extra>"
                 )
             )
@@ -373,9 +373,9 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
             modebar_add=["zoom", "pan", "resetscale"]
         )
 
-        # Aquí siempre devolvemos un mensaje vacío para el div de advertencia
-        # ya que el manejo de mensajes específicos (como "No hay datos recientes")
-        # se hace directamente en el título del gráfico si no hay GRD o no hay selección.
+        # Aqui siempre devolvemos un mensaje vacio para el div de advertencia
+        # ya que el manejo de mensajes especificos (como "No hay datos recientes")
+        # se hace directamente en el titulo del grafico si no hay GRD o no hay seleccion.
         # Solo necesitamos el mensaje si no hay GRDs en la DB al inicio.
         warning_children = "ADVERTENCIA: No se han encontrado equipos GRD en la base de datos para consulta." if not current_db_grd_descriptions else ""
 
