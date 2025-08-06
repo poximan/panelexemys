@@ -29,11 +29,10 @@ def get_mantenimiento_layout():
             children=[
                 html.H2("Topología de red", className='sub-title'),
                 html.Img(
-                    src='/assets/topologia.svg',  # Ruta al archivo SVG en la carpeta assets
+                    src='/secure-svg/topologia.png',  # Ruta al archivo SVG en la carpeta assets
                     alt='Diagrama de Topología de la Aplicación',
                     style={
                         'width': '100%',  # Ajusta el ancho para que sea responsivo
-                        
                         'height': 'auto', # Mantiene la relación de aspecto
                         'display': 'block', # Centra la imagen                        
                         'border-radius': '8px', # Esquinas redondeadas
