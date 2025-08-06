@@ -2,7 +2,7 @@ import threading # Para ejecutar los observadores en hilos separados
 from werkzeug.serving import is_running_from_reloader # Importa para detectar el proceso del reloader
 import dash
 from . import dash_config # Importa el modulo de configuracion de Dash
-from flask import request, send_from_directory
+from flask import request
 
 from src.persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
 from src.persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO para relés
@@ -36,21 +36,6 @@ app.config['suppress_callback_exceptions'] = True
 
 # Esta linea es necesaria para Gunicorn o despliegues de produccion
 server = app.server
-
-# Definir la ruta segura para el archivo SVG
-SECURE_SVG_DIRECTORY = r'Z:\info general\01 - Comunicaciones, Automatismos e Instrumentación\doc interna'
-
-@server.route('/secure-svg/<path:filename>')
-def serve_secure_svg(filename):
-    """
-    Sirve archivos SVG desde una ubicación de red segura.
-    Solo permite el acceso a archivos dentro de SECURE_SVG_DIRECTORY.
-    """
-    try:
-        return send_from_directory(SECURE_SVG_DIRECTORY, filename)
-    except Exception as e:
-        logger_app.log(f"Error al servir SVG seguro: {e}", origen="HTTP/SVG")
-        return "Error al cargar el diagrama de topología.", 404
 
 """
 plotly usa dash para su parte grafica, que a su vez usa flash como microframework para http.
