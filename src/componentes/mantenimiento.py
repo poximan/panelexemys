@@ -1,7 +1,7 @@
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
-import time # Importar para time.strftime
+import time
 
 # MODIFICACIÓN: Importar el servicio de envio de email y la configuracion
 from src.notificador import email_sender
@@ -28,19 +28,30 @@ def get_mantenimiento_layout():
         html.Div(
             children=[
                 html.H2("Topología de red", className='sub-title'),
-                html.Img(
-                    src='/assets/topologia.png',  # Ruta al archivo SVG en la carpeta assets
-                    alt='Diagrama de Topología de la Aplicación',
+                # INICIO DE LA MODIFICACIÓN
+                # El contenedor es necesario para la funcionalidad de la lupa
+                html.Div(
+                    className='magnifier-container',
+                    children=[
+                        html.Img(
+                            src='/assets/topologia.png',  # Ruta al archivo SVG en la carpeta assets
+                            alt='Diagrama de Topología de la Aplicación',
+                            # Usamos una clase para el estilo en lugar de estilos inline
+                            className='magnifier-image'
+                        ),
+                        # Este div será la "lupa"
+                        html.Div(className='magnifier-loupe')
+                    ],
                     style={
-                        'width': '100%',  # Ajusta el ancho para que sea responsivo
-                        'height': 'auto', # Mantiene la relación de aspecto
-                        'display': 'block', # Centra la imagen                        
-                        'border-radius': '8px', # Esquinas redondeadas
-                        'box-shadow': '0 4px 8px rgba(0, 0, 0, 0.1)' # Sombra suave
+                        'width': '100%',
+                        
+                        'margin': '0 auto',
+                        'position': 'relative' # Es crucial para el posicionamiento de la lupa
                     }
                 )
+                # FIN DE LA MODIFICACIÓN
             ],
-            style={'textAlign': 'center', 'marginTop': '30px', 'marginBottom': '30px'}
+            style={'textAlign': 'center'}
         ),
     ])
 
