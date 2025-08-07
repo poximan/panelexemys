@@ -7,6 +7,10 @@ import config
 from src.componentes.middleware_dash import get_dashboard
 from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
 from src.componentes.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
+# Importamos las funciones de registro de callbacks que antes estaban en middleware_dash.py
+from src.componentes.middleware_kpi import register_kpi_panel_callbacks
+from src.componentes.middleware_histograma import register_controls_and_graph_callbacks
+from src.componentes.middleware_tabla import register_main_data_table_callbacks
 
 
 def configure_dash_app(app: dash.Dash):
@@ -21,10 +25,11 @@ def configure_dash_app(app: dash.Dash):
     initial_grd_value = list(db_grd_descriptions.keys())[0] if db_grd_descriptions else None
 
     # --- Definicion de Layouts para cada "pagina" ---
+    # get_dashboard ya no necesita 'app' como parametro, solo los datos
     dashboard_layout = get_dashboard(db_grd_descriptions, initial_grd_value)
     # Layout para la Pagina de "Reles MiCOM" (delegado al nuevo modulo)
     reles_micom_layout = get_reles_micom_layout()
-    # Layout para la Pagina de "Mantenimiento" (delegado al nuevo modulo) # <-- ¡NUEVO LAYOUT!
+    # Layout para la Pagina de "Mantenimiento" (delegado al nuevo modulo)
     mantenimiento_layout = get_mantenimiento_layout()
 
     # --- Layout Principal de la Aplicacion (Shell de la SPA) ---
@@ -36,7 +41,7 @@ def configure_dash_app(app: dash.Dash):
         html.Div(className='navbar', children=[
             dcc.Link('Dashboard', href='/dash', className='nav-link'),
             dcc.Link('Reles MiCOM', href='/reles', className='nav-link'),
-            dcc.Link('Mantenimiento', href='/mantenimiento', className='nav-link') # <-- ¡NUEVO ENLACE!
+            dcc.Link('Mantenimiento', href='/mantenimiento', className='nav-link')
         ]),
         html.Hr(className='navbar-separator'), # Separador visual
 
@@ -56,10 +61,10 @@ def configure_dash_app(app: dash.Dash):
         else: # Si no es /reles o /mantenimiento, o cualquier otra ruta, mostramos el dashboard por defecto
             return dashboard_layout
 
-    # Registrar los callbacks especificos de cada panel/pagina
-    # Estos callbacks deben ser registrados una sola vez al inicio de la aplicacion.
+    # Registrar TODOS los callbacks de cada panel/pagina en un solo lugar
+    register_reles_micom_callbacks(app)
+    register_mantenimiento_callbacks(app)
+    # NUEVO: Registro de los callbacks del dashboard
     register_kpi_panel_callbacks(app, config)
     register_controls_and_graph_callbacks(app)
     register_main_data_table_callbacks(app)
-    register_reles_micom_callbacks(app)
-    register_mantenimiento_callbacks(app)

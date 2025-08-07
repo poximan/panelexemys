@@ -6,12 +6,12 @@ from src.componentes.middleware_histograma import get_controls_and_graph_layout,
 from src.componentes.middleware_tabla import get_main_data_table_layout, register_main_data_table_callbacks
 import config # Importacion corregida: necesario para config.DASHBOARD_REFRESH_INTERVAL_MS
 
-
 def get_dashboard(db_grd_descriptions, initial_grd_value):
     """
-    Define el layout para la pestaña 'Reles MiCOM'.
-    Incluye un BooleanSwitch de dash_daq para controlar la observacion de reles,
-    un area de estado, y un contenedor para las tablas de fallas.
+    Define el layout para el dashboard principal.
+    
+    NOTA: Las llamadas para registrar callbacks han sido movidas a un
+    lugar centralizado para seguir las buenas practicas de Dash.
     """
     return html.Div(children=[
         html.H1("Middleware Exemys", className='main-title', style={'fontFamily': 'Inter, sans-serif'}),
