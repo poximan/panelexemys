@@ -141,7 +141,6 @@ def register_broker_callbacks(app: dash.Dash):
         
         return updated_children[:50]
 
-    # NUEVO CALLBACK para el indicador de estado del broker, lee del archivo
     @app.callback(
         Output('broker-status-indicator', 'className'),
         [Input('broker-status-interval', 'n_intervals')]

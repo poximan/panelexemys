@@ -38,7 +38,6 @@ def get_kpi_panel_layout():
                     html.Thead(html.Tr([
                         html.Th("Equipo", className='disconnected-table-header-cell'),
                         html.Th("Última Caída", className='disconnected-table-header-cell'),
-                        # NEW COLUMN: Tiempo Desconectado
                         html.Th("T.Desc. (min)", className='disconnected-table-header-cell')
                     ])),
                     html.Tbody(id='disconnected-table-body', children=[])
@@ -143,7 +142,6 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                     html.Tr([
                         html.Td(display_name, className='disconnected-table-data-cell'),
                         html.Td(timestamp_str, className='disconnected-table-timestamp-cell'),
-                        # NEW CELL: Time Disconnected
                         html.Td(time_disconnected_minutes, className='disconnected-table-data-cell')
                     ])
                 )

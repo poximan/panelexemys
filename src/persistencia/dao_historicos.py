@@ -84,9 +84,10 @@ class HistoricosDAO:
                         FROM historicos
                         GROUP BY id_grd
                     ) AS latest_records ON h.id_grd = latest_records.id_grd 
-                                           AND h.timestamp = latest_records.max_timestamp
+                        AND h.timestamp = latest_records.max_timestamp
                     INNER JOIN grd g ON h.id_grd = g.id
-                    WHERE g.descripcion <> 'reserva';
+                    WHERE g.descripcion <> 'reserva'
+                        AND g.descripcion <> 'SE - CD45 Murchison';
                 """)
                 
                 rows = cursor.fetchall()

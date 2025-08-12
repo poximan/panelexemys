@@ -1,9 +1,7 @@
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 import time
-
-# MODIFICACIÓN: Importar el servicio de envio de email y la configuracion
 from src.notificador import email_sender
 import config
 
@@ -28,7 +26,6 @@ def get_mantenimiento_layout():
         html.Div(
             children=[
                 html.H2("Topología de red", className='sub-title'),
-                # INICIO DE LA MODIFICACIÓN
                 # El contenedor es necesario para la funcionalidad de la lupa
                 html.Div(
                     className='magnifier-container',
@@ -49,7 +46,6 @@ def get_mantenimiento_layout():
                         'position': 'relative' # Es crucial para el posicionamiento de la lupa
                     }
                 )
-                # FIN DE LA MODIFICACIÓN
             ],
             style={'textAlign': 'center'}
         ),

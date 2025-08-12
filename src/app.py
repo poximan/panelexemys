@@ -1,7 +1,7 @@
-import threading # Para ejecutar los observadores en hilos separados
+import threading
 from werkzeug.serving import is_running_from_reloader # Importa para detectar el proceso del reloader
 import dash
-from . import dash_config # Importa el modulo de configuracion de Dash
+from . import dash_config
 from flask import request
 
 from src.persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
@@ -14,7 +14,7 @@ from src.notificador.alarm_notifier import AlarmNotifier
 from src.componentes.broker_view import mqtt_client_manager # Importa la instancia del manager MQTT
 
 from src.logger import Logosaurio
-import config # Importa la configuracion
+import config
 
 logger_app = Logosaurio()
 
@@ -34,13 +34,8 @@ def log_user_ip():
     Función que se ejecuta antes de cada solicitud HTTP
     y registra la IP del cliente.
     """
-    ip_addr = request.remote_addr
-
-    # Si la IP es la del host local, salir
-    if ip_addr == '127.0.0.1' or ip_addr == '172.17.0.1' :
-        return
-    
-    logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="HTTP/GET")
+    ip_addr = request.remote_addr    
+    logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="APP/HTTP")
 
 # Configura el layout y los callbacks de la aplicacion usando la funcion de dash_config
 dash_config.configure_dash_app(app)
@@ -86,7 +81,7 @@ if __name__ == '__main__':
         )
         alarm_thread.start()
 
-        # NUEVO: Iniciar el cliente MQTT en un hilo de fondo
+        # Iniciar el cliente MQTT en un hilo de fondo
         logger_app.log("6º: Lanzando el cliente MQTT en un hilo de fondo...", origen="APP")
         mqtt_thread = threading.Thread(target=mqtt_client_manager.start)
         mqtt_thread.daemon = True
