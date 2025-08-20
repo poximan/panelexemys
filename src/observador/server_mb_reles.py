@@ -1,5 +1,6 @@
 import time
 import os
+import json # Importamos la libreria json
 from src.modelo.registro_falla import RegistroFalla
 from src.persistencia.dao_reles import reles_dao
 from src.persistencia.dao_fallas_reles import fallas_reles_dao
@@ -26,9 +27,9 @@ class ProtectionRelayClient:
         # Obtener los IDs de los reles activos directamente desde el DAO de reles
         self.relay_unit_ids = list(reles_dao.get_all_reles_with_descriptions().keys())
         
-        # Construir la ruta absoluta al archivo observar.txt al inicializar
+        # Construir la ruta absoluta al archivo observar.json al inicializar
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.observar_file_path = os.path.join(script_dir, 'observar.txt')
+        self.observar_file_path = os.path.join(script_dir, 'observar.json')
 
         self._last_observing_status = None 
 
@@ -42,22 +43,26 @@ class ProtectionRelayClient:
 
     def _is_observing_enabled(self) -> bool:
         """
-        Lee el estado del archivo observar.txt.
-        Retorna True si el contenido es 'true' (ignorando mayusculas/minusculas), False en caso contrario.
-        Maneja el caso de que el archivo no exista o haya errores de lectura.
+        Lee el estado del archivo observar.json.
+        Retorna el valor de la clave 'reles_consultar'.
+        Maneja el caso de que el archivo no exista, esté vacío o haya errores de lectura.
         """
         if not os.path.exists(self.observar_file_path):
             return False
         try:
             with open(self.observar_file_path, 'r') as f:
-                content = f.read().strip().lower()
-                is_enabled = (content == 'true') 
-                return is_enabled
-        except Exception as e:
+                content = f.read().strip()
+                if not content:
+                    return False
+                
+                data = json.loads(content)
+                # Retorna True solo si la clave 'reles_consultar' existe y su valor es True
+                return data.get('reles_consultar', False)
+        except (IOError, json.JSONDecodeError) as e:
             self.logger.log(
                 f"ERROR al leer el estado de observacion desde {self.observar_file_path}: {e}",
                 origen="OBS/RELE"
-                )                
+                )
             return False
 
     def read_relay_status(self, relay_id: int):
@@ -152,7 +157,8 @@ class ProtectionRelayClient:
                         f"No se pudo encontrar el ID interno para el rele Modbus ID {relay_id}. No se registrara la falla en la BD.",
                         origen="OBS/RELE"
                     )
-
+                    return None # Retornamos None aqui tambien para mantener la consistencia
+                
                 return latest_fault_record.to_dict()
             else:
                 self.logger.log(
@@ -181,9 +187,9 @@ class ProtectionRelayClient:
 
             if current_observing_status != self._last_observing_status:
                 if not current_observing_status:
-                    self.logger.log("Monitoreo de Reles MiCOM PAUSADO (observar.txt indica OFF).", origen="OBS/RELE")
+                    self.logger.log("Monitoreo de Reles MiCOM PAUSADO (observar.json indica OFF).", origen="OBS/RELE")
                 else:
-                    self.logger.log("Monitoreo de Reles MiCOM REANUDADO (observar.txt indica ON).", origen="OBS/RELE")
+                    self.logger.log("Monitoreo de Reles MiCOM REANUDADO (observar.json indica ON).", origen="OBS/RELE")
                 self._last_observing_status = current_observing_status
 
             if not current_observing_status: 

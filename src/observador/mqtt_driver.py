@@ -1,7 +1,6 @@
 import paho.mqtt.client as mqtt
 import ssl
 import threading
-import time
 from src.logger import Logosaurio
 import config
 
@@ -48,7 +47,7 @@ class MqttDriver:
             # En caso de fallo de conexion, se programa un reintento.
             self._schedule_reconnect()
 
-    def _on_disconnect(self, client, userdata, flags, rc, properties=None): # <-- Se actualizó la firma del método
+    def _on_disconnect(self, client, userdata, flags, rc, properties=None):
         """Callback que se ejecuta cuando el cliente se desconecta del broker."""
         self.logger.log("MQTT Driver: Desconectado del broker.", origen="OBS/MQTT")
         self._status = "disconnected"
@@ -67,7 +66,7 @@ class MqttDriver:
         if self._reconnect_timer and self._reconnect_timer.is_alive():
             self._reconnect_timer.cancel()
             self.logger.log("MQTT Driver: Se cancela temporizador de reintento anterior.", origen="OBS/MQTT")
-        
+            
         # Log del reintento
         self.logger.log("MQTT Driver: Programando reintento de conexión en 10 segundos...", origen="OBS/MQTT")
         
@@ -91,7 +90,7 @@ class MqttDriver:
         
         try:
             self.logger.log(f"MQTT Driver: Intentando conectar a {config.MQTT_BROKER_HOST}:{config.MQTT_BROKER_PORT}...", origen="OBS/MQTT")
-            
+
             # Creación del cliente y registro de los callbacks antes de conectar
             self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2) # Usar API v2
             self.client.on_connect = self._on_connect
@@ -105,8 +104,11 @@ class MqttDriver:
 
             # Configuracion de TLS/SSL
             if config.MQTT_USE_TLS:
+                # Se utiliza tls_set() sin argumentos para confiar en los certificados CA del sistema
                 self.client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
-                self.logger.log("MQTT Driver: TLS/SSL configurado.", origen="OBS/MQTT")
+                # Se habilita la verificación del certificado del servidor
+                self.client.tls_insecure_set(False)
+                self.logger.log("MQTT Driver: TLS/SSL configurado con verificación de certificado.", origen="OBS/MQTT")
             else:
                 self.logger.log("MQTT Driver: TLS/SSL deshabilitado.", origen="OBS/MQTT")
 

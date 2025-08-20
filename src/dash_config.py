@@ -5,7 +5,7 @@ from src.persistencia.dao_grd import grd_dao
 import config
 from flask import request
 
-from src.componentes.middleware_dash import get_dashboard
+from src.componentes.middleware_dash import get_dashboard, register_dashboard_callbacks
 from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
 from src.componentes.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
 from src.componentes.middleware_kpi import register_kpi_panel_callbacks
@@ -98,9 +98,10 @@ def configure_dash_app(app: dash.Dash):
             return dashboard_layout
 
     # Registrar TODOS los callbacks de cada panel/pagina en un solo lugar
-    register_reles_micom_callbacks(app)
-    register_mantenimiento_callbacks(app)
+    register_dashboard_callbacks(app)
     register_kpi_panel_callbacks(app, config)
     register_controls_and_graph_callbacks(app)
     register_main_data_table_callbacks(app)
+    register_reles_micom_callbacks(app)
+    register_mantenimiento_callbacks(app)
     register_broker_callbacks(app)

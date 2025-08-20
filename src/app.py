@@ -4,14 +4,15 @@ import dash
 from . import dash_config
 from flask import request
 
-from src.persistencia.dao_grd import grd_dao as dao_grd # Necesario para insertar las descripciones de GRD
-from src.persistencia.dao_reles import reles_dao as dao_reles # Importa el DAO para relés
-import src.persistencia.ddl_esquema as ddl # Importa el modulo para crear el esquema
-import src.persistencia.sim_poblar as poblador # Importa el modulo de poblamiento
+from src.persistencia.dao_grd import grd_dao as dao_grd 
+from src.persistencia.dao_reles import reles_dao as dao_reles 
+import src.persistencia.ddl_esquema as ddl 
+import src.persistencia.sim_poblar as poblador 
 
 from src.observador.main_observer import start_modbus_orchestrator 
+from src.observador.actividad_tcp import test_tcp_connection 
 from src.notificador.alarm_notifier import AlarmNotifier
-from src.componentes.broker_view import mqtt_client_manager # Importa la instancia del manager MQTT
+from src.componentes.broker_view import mqtt_client_manager 
 
 from src.logger import Logosaurio
 import config
@@ -34,8 +35,9 @@ def log_user_ip():
     Función que se ejecuta antes de cada solicitud HTTP
     y registra la IP del cliente.
     """
-    ip_addr = request.remote_addr    
-    logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="APP/HTTP")
+    ip_addr = request.remote_addr
+    if ip_addr != '127.0.0.1': 
+        logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="APP/HTTP")
 
 # Configura el layout y los callbacks de la aplicacion usando la funcion de dash_config
 dash_config.configure_dash_app(app)
@@ -44,7 +46,7 @@ dash_config.configure_dash_app(app)
 if __name__ == '__main__':
 
     if not is_running_from_reloader():
-        print("1º: Es el proceso principal. Realizando tareas de inicializacion...")
+        logger_app.log("1º: Es el proceso principal. Realizando tareas de inicializacion...", origen="APP")
 
         logger_app.log("Iniciando aplicación. Creando logger central...", origen="APP")
         
@@ -73,7 +75,20 @@ if __name__ == '__main__':
         modbus_orchestrator_thread.daemon = True
         modbus_orchestrator_thread.start()
 
-        logger_app.log("5º: Lanzando el notificador de alarmas en un hilo separado...", origen="APP")
+        # --- Nuevo hilo para el monitor de actividad TCP ---
+        logger_app.log("5º: Lanzando el monitor de actividad TCP en un hilo separado...", origen="APP")
+        # Definimos las constantes de la conexion
+        TCP_TEST_HOST = "200.63.163.36"
+        TCP_TEST_PORT = 40000
+        # Lanzamos el hilo, pasándole los parámetros a la función test_tcp_connection
+        tcp_monitor_thread = threading.Thread(
+            target=test_tcp_connection,
+            args=(TCP_TEST_HOST, TCP_TEST_PORT)
+        )
+        tcp_monitor_thread.daemon = True
+        tcp_monitor_thread.start()
+
+        logger_app.log("6º: Lanzando el notificador de alarmas en un hilo separado...", origen="APP")
         alarm_notifier_instance = AlarmNotifier(logger=logger_app)
         alarm_thread = threading.Thread(
             target=alarm_notifier_instance.start_observer_loop,
@@ -82,7 +97,7 @@ if __name__ == '__main__':
         alarm_thread.start()
 
         # Iniciar el cliente MQTT en un hilo de fondo
-        logger_app.log("6º: Lanzando el cliente MQTT en un hilo de fondo...", origen="APP")
+        logger_app.log("7º: Lanzando el cliente MQTT en un hilo de fondo...", origen="APP")
         mqtt_thread = threading.Thread(target=mqtt_client_manager.start)
         mqtt_thread.daemon = True
         mqtt_thread.start()

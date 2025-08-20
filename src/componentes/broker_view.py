@@ -69,13 +69,13 @@ def get_broker_layout():
         # dcc.Interval para refrescar la vista de suscripciones cada 1 segundo
         dcc.Interval(
             id='interval-component',
-            interval=1000, # en milisegundos
+            interval=config.DASHBOARD_REFRESH_INTERVAL_MS, # en milisegundos
             n_intervals=0
         ),
         # dcc.Interval para refrescar el estado del broker cada 500ms
         dcc.Interval(
             id='broker-status-interval',
-            interval=500,
+            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
             n_intervals=0
         )
     ])

@@ -1,6 +1,6 @@
 import sqlite3
-import threading
 import os
+import threading
 import config # Importa la configuracion
 
 # Rutas de la base de datos usando config.py

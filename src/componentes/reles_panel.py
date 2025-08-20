@@ -2,10 +2,11 @@ from dash import html, dcc, no_update, dash_table
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
 import os
-from datetime import datetime # Importacion corregida: necesario para datetime.fromisoformat
-from src.persistencia.dao_reles import reles_dao # Importa el DAO para la tabla 'reles'
-from src.persistencia.dao_fallas_reles import fallas_reles_dao # Importa el DAO para la tabla 'fallas_reles'
-import config # Importacion corregida: necesario para config.DASHBOARD_REFRESH_INTERVAL_MS
+import json # Importamos la libreria json
+from datetime import datetime
+from src.persistencia.dao_reles import reles_dao
+from src.persistencia.dao_fallas_reles import fallas_reles_dao
+import config
 
 # --- Funciones de Layout ---
 
@@ -22,13 +23,13 @@ def get_reles_micom_layout():
             # Usamos daq.BooleanSwitch directamente con su propia etiqueta
             daq.BooleanSwitch(
                 id='reles-micom-observer-toggle',
-                label='Observar Reles MiCOM', # Etiqueta para el switch
-                labelPosition='right', # Posicion de la etiqueta (puede ser 'left' o 'right')
-                on=False, # 'on' es la propiedad para el valor booleano en BooleanSwitch
-                style={'margin-right': '10px'} # Estilo especifico, se mantiene inline
+                label='Observar Reles MiCOM',
+                labelPosition='right',
+                on=False,
+                style={'margin-right': '10px'}
             ),
             # El Div para el Output es mantenido, pero el callback retornara no_update
-            html.Div(id='reles-micom-observer-status', className='hidden-element') # Estilo migrado
+            html.Div(id='reles-micom-observer-status', className='hidden-element')
         ], className='reles-controls-container'),
 
         html.Div(
@@ -40,7 +41,7 @@ def get_reles_micom_layout():
         # Componente dcc.Interval para refrescar los datos de las fallas
         dcc.Interval(
             id='reles-faults-interval',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS, # Intervalo de refresco desde config
+            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
             n_intervals=0
         )
     ])
@@ -53,34 +54,44 @@ def register_reles_micom_callbacks(app):
     Incluye el callback para el switch de observacion y para la tabla de fallas.
     """
     @app.callback(
-        Output('reles-micom-observer-status', 'children'), # El Output debe permanecer para que el callback sea registrado
-        Input('reles-micom-observer-toggle', 'on') # El Input ahora es 'on' para BooleanSwitch
+        Output('reles-micom-observer-status', 'children'),
+        Input('reles-micom-observer-toggle', 'on')
     )
     def update_observer_status(is_observing):
-        # Construye la ruta absoluta para el archivo observar.txt
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(script_dir, '..')) # Sube un nivel a partir de 'componentes'
-        observar_file_path = os.path.join(project_root, 'observador', 'observar.txt')
+        project_root = os.path.abspath(os.path.join(script_dir, '..'))
+        # Cambiamos la extension del archivo a .json
+        observar_file_path = os.path.join(project_root, 'observador', 'observar.json')
         
-        # Calcula la ruta relativa al directorio raiz del proyecto
         relative_observar_file_path = os.path.relpath(observar_file_path, project_root)
 
-        # Escribe el estado en el archivo
         try:
+            # Leer el contenido actual del archivo
+            if os.path.exists(observar_file_path):
+                with open(observar_file_path, 'r') as f:
+                    content = f.read()
+                    if content:
+                        data = json.loads(content)
+                    else:
+                        data = {}
+            else:
+                data = {}
+
+            # Actualizar solo la clave 'reles_consultar'
+            data['reles_consultar'] = is_observing
+            
+            # Escribir el objeto JSON completo de vuelta al archivo
             with open(observar_file_path, 'w') as f:
-                f.write(str(is_observing).lower()) # Escribe 'true' o 'false' en minusculas
-            
-            # Mensaje para la consola (ahora con la ruta relativa)
-            console_log_message = f"Observador de Reles: {'ON' if is_observing else 'OFF'}. Estado guardado en {relative_observar_file_path}"
+                json.dump(data, f, indent=4) # Usamos indent=4 para una mejor legibilidad del JSON
+
+            console_log_message = f"Observador de Reles: {'ON' if is_observing else 'OFF'}. Estado de 'reles_consultar' guardado en {relative_observar_file_path}"
             print(console_log_message) 
-            
-        except Exception as e:
-            # Mensaje de error para la consola (con la ruta relativa)
+        
+        except (IOError, json.JSONDecodeError) as e:
             console_log_message = f"ERROR al guardar el estado en {relative_observar_file_path}: {e}"
             print(console_log_message)
         
-        # Retorna no_update para evitar que el mensaje sea exhibido en la interfaz del usuario
-        return no_update 
+        return no_update
 
     @app.callback(
         Output('reles-faults-container', 'children'),
@@ -92,30 +103,25 @@ def register_reles_micom_callbacks(app):
         """
         fault_tables = []
         
-        # Obtener todos los reles activos desde la base de datos
         active_reles = reles_dao.get_all_reles_with_descriptions()
 
         if not active_reles:
             return html.P("No hay reles activos configurados o con descripcion 'NO APLICA'.", className="text-gray-600 mt-4")
 
         for modbus_id, description in active_reles.items():
-            # Obtener el ID interno del rele para consultar la tabla de fallas
             internal_rele_id = reles_dao.get_internal_id_by_modbus_id(modbus_id)
             
             if internal_rele_id is not None:
                 latest_falla = fallas_reles_dao.get_latest_falla_for_rele(internal_rele_id)
                 
                 if latest_falla:
-                    # Formatear el timestamp para una mejor lectura
                     formatted_timestamp = latest_falla['timestamp']
                     try:
-                        # Intenta convertir a datetime y luego formatear si es posible
                         dt_object = datetime.fromisoformat(latest_falla['timestamp'])
                         formatted_timestamp = dt_object.strftime('%Y-%m-%d %H:%M:%S')
                     except (ValueError, TypeError):
-                        pass # Si no se puede convertir, usa el string original
+                        pass
 
-                    # Preparar datos para Dash DataTable
                     data_for_table = [
                         {"Atributo": "ID Modbus", "Valor": modbus_id},
                         {"Atributo": "Descripcion", "Valor": description},
@@ -128,7 +134,7 @@ def register_reles_micom_callbacks(app):
                     ]
 
                     fault_tables.append(
-                        html.Div([                            
+                        html.Div([
                             dash_table.DataTable(
                                 id=f'falla-table-{modbus_id}',
                                 columns=[
@@ -136,17 +142,17 @@ def register_reles_micom_callbacks(app):
                                     {"name": "Valor", "id": "Valor"}
                                 ],
                                 data=data_for_table,
-                                style_table={'overflowX': 'auto'}, # margin-bottom movido a CSS
-                                style_cell={'textAlign': 'left', 'fontFamily': 'Inter, sans-serif', 'padding': '8px 12px'}, # Se mantiene inline por especificidad o se puede migrar
-                                style_header={'backgroundColor': '#66A5AD', 'color': 'white', 'fontWeight': 'bold'}, # Se mantiene inline por especificidad o se puede migrar
+                                style_table={'overflowX': 'auto'},
+                                style_cell={'textAlign': 'left', 'fontFamily': 'Inter, sans-serif', 'padding': '8px 12px'},
+                                style_header={'backgroundColor': '#66A5AD', 'color': 'white', 'fontWeight': 'bold'},
                                 style_data_conditional=[
                                     {
                                         'if': {'row_index': 'odd'},
-                                        'backgroundColor': '#C4DFE6' # Se mantiene inline, ya que style_data_conditional es una propiedad de Dash
+                                        'backgroundColor': '#C4DFE6'
                                     }
                                 ]
                             )
-                        ], className="reles-fault-card") # Estilo migrado
+                        ], className="reles-fault-card")
                     )
 
         if not fault_tables:
