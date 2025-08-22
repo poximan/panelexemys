@@ -73,9 +73,10 @@ class MqttClientManager:
         """
         Inicia el bucle de red del cliente MQTT. Este método es no-bloqueante.
         """
+        # El driver ahora maneja la sincronización.
         self.client = self.mqtt_driver.connect()
         if self.client:
-            # Reasignamos los callbacks del cliente con nuestros propios métodos
+            # Asignar los callbacks específicos de este manager
             self.client.on_connect = self._on_connect_callback
             self.client.on_message = self._on_message_callback
             self.logger.log("MQTT Client Manager: Bucle de red MQTT iniciado. Esperando conexión...", origen="OBS/MQTT")
@@ -87,9 +88,11 @@ class MqttClientManager:
         Detiene el bucle de red del cliente MQTT.
         """
         if self.client:
-            self.client.loop_stop()
+            # El driver se encarga de detener el bucle
             self.mqtt_driver.disconnect()
             self.logger.log("MQTT Client Manager: Bucle de red MQTT detenido.", origen="OBS/MQTT")
+        else:
+            self.logger.log("MQTT Client Manager: Cliente MQTT no instanciado.", origen="OBS/MQTT")
 
     def get_connection_status(self) -> str:
         """

@@ -4,6 +4,7 @@ from dash.dependencies import Input, Output, State
 from src.persistencia.dao_grd import grd_dao
 import config
 from flask import request
+from queue import Queue
 
 from src.componentes.middleware_dash import get_dashboard, register_dashboard_callbacks
 from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
@@ -11,17 +12,20 @@ from src.componentes.mantenimiento import get_mantenimiento_layout, register_man
 from src.componentes.middleware_kpi import register_kpi_panel_callbacks
 from src.componentes.middleware_histograma import register_controls_and_graph_callbacks
 from src.componentes.middleware_tabla import register_main_data_table_callbacks
-from src.componentes.broker_view import get_broker_layout, register_broker_callbacks
+from src.componentes.broker_view import get_broker_layout, register_broker_callbacks, initialize_broker_components
 
 # Definir la clave de acceso para las paginas de administrador
-ADMIN_KEY = '12345' # ¡IMPORTANTE! Cambia esto por una clave secreta y segura en producción.
+ADMIN_KEY = '12345'
 
-def configure_dash_app(app: dash.Dash):
+def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue):
     """
     Configura el layout y los callbacks de la aplicacion Dash para una estructura SPA.
     """
     db_grd_descriptions = grd_dao.get_all_grds_with_descriptions()
     initial_grd_value = list(db_grd_descriptions.keys())[0] if db_grd_descriptions else None
+
+    # Inicializar el módulo de broker_view con las instancias correctas
+    initialize_broker_components(mqtt_client_manager, message_queue)
 
     # --- Definicion de Layouts para cada "pagina" ---
     dashboard_layout = get_dashboard(db_grd_descriptions, initial_grd_value)
@@ -42,7 +46,6 @@ def configure_dash_app(app: dash.Dash):
         dcc.Location(id='url', refresh=False),
         dcc.Store(id='auth-status', data={'is_admin': False}),
         
-        # El menú de navegación ahora muestra todos los enlaces de forma estática
         html.Div(className='navbar', id='navbar-links-container', children=[
             dcc.Link('Dashboard', href='/dash', className='nav-link'),
             dcc.Link('Reles MiCOM', href='/reles', className='nav-link'),
@@ -55,7 +58,6 @@ def configure_dash_app(app: dash.Dash):
     ])
 
     # --- Callback para manejar la autenticación con clave secreta ---
-    # Este callback solo actualiza el estado de autenticación.
     @app.callback(
         Output('auth-status', 'data'),
         Output('access-feedback', 'children'),
@@ -65,13 +67,9 @@ def configure_dash_app(app: dash.Dash):
     def authenticate(n_clicks, key_value):
         if n_clicks > 0:
             if key_value == ADMIN_KEY:
-                # Clave correcta
                 return {'is_admin': True}, "✅ Acceso concedido. Redirigiendo..."
             else:
-                # Clave incorrecta
                 return {'is_admin': False}, "❌ Clave incorrecta."
-        
-        # Estado inicial
         return dash.no_update, ""
 
     # --- Callback para mostrar el contenido de la pagina ---
@@ -85,12 +83,10 @@ def configure_dash_app(app: dash.Dash):
         if pathname == '/reles':
             return reles_micom_layout
         elif pathname == '/mantenimiento':
-            # Si el usuario no está autenticado, muestra el formulario de acceso
             if not is_admin:
                 return access_prompt_layout
             return mantenimiento_layout
         elif pathname == '/broker':
-            # Si el usuario no está autenticado, muestra el formulario de acceso
             if not is_admin:
                 return access_prompt_layout
             return broker_layout

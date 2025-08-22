@@ -187,9 +187,9 @@ class ProtectionRelayClient:
 
             if current_observing_status != self._last_observing_status:
                 if not current_observing_status:
-                    self.logger.log("Monitoreo de Reles MiCOM PAUSADO (observar.json indica OFF).", origen="OBS/RELE")
+                    self.logger.log("Monitoreo de Reles MiCOM PAUSADO", origen="OBS/RELE")
                 else:
-                    self.logger.log("Monitoreo de Reles MiCOM REANUDADO (observar.json indica ON).", origen="OBS/RELE")
+                    self.logger.log("Monitoreo de Reles MiCOM REANUDADO", origen="OBS/RELE")
                 self._last_observing_status = current_observing_status
 
             if not current_observing_status: 

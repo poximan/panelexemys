@@ -17,7 +17,7 @@ def start_modbus_orchestrator(logger: Logosaurio):
         common_modbus_driver = ModbusTcpDriver(
             host=config.MB_HOST, 
             port=config.MB_PORT,
-            timeout=5,
+            timeout=10,
             logger=logger
         )
     except Exception as e:

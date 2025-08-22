@@ -1,25 +1,19 @@
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
-from queue import Queue
-from src.observador.mqtt_client_manager import MqttClientManager
-from src.logger import Logosaurio
 import config
 
-# Inicializar componentes globales
-# La cola se utiliza para comunicar mensajes del hilo MQTT a la aplicacion Dash
-message_queue = Queue()
-logger = Logosaurio()
-mqtt_client_manager = MqttClientManager(logger, message_queue)
+# Declara las variables globales sin inicializarlas.
+# Serán inicializadas por la función `initialize_broker_components`.
+message_queue = None
+mqtt_client_manager = None
 
 # Nombre del archivo de estado (debe coincidir con el del MqttDriver)
 STATUS_FILE = "./src/componentes/estado_broker.txt"
 
 # --- Layout de la pagina "Broker" ---
 def get_broker_layout():
-    """
-    Define el layout de la página "Broker" con dos columnas y un indicador de estado.
-    """
+    # ... (El resto del código de get_broker_layout() es idéntico) ...
     return html.Div(children=[
         html.H1("Broker MQTT", className='main-title'),
         
@@ -54,7 +48,7 @@ def get_broker_layout():
                         n_clicks=0,
                         className='bg-purple-500 text-white font-bold py-2 px-4 rounded hover:bg-purple-700 transition duration-300'
                     ),
-                    html.Div(id='output-publish-status', style={'display': 'none'}) # Un output "fantasma" para activar el callback
+                    html.Div(id='output-publish-status', style={'display': 'none'})
                 ])
             ]),
             # Columna de Suscripciones
@@ -69,7 +63,7 @@ def get_broker_layout():
         # dcc.Interval para refrescar la vista de suscripciones cada 1 segundo
         dcc.Interval(
             id='interval-component',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS, # en milisegundos
+            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
             n_intervals=0
         ),
         # dcc.Interval para refrescar el estado del broker cada 500ms
@@ -80,12 +74,20 @@ def get_broker_layout():
         )
     ])
 
+def initialize_broker_components(manager, queue):
+    """
+    Función para inicializar el cliente MQTT y la cola en el módulo de vista.
+
+    La palabra 'global' le dice a Python que las variables mqtt_client_manager y
+    message_queue no son locales sino globales declaradas al principio del módulo
+    """
+    global mqtt_client_manager, message_queue
+    mqtt_client_manager = manager
+    message_queue = queue
+
 # --- Callbacks para la pagina "Broker" ---
 def register_broker_callbacks(app: dash.Dash):
-    """
-    Registra los callbacks para la página del broker.
-    """
-    # Callback para manejar las publicaciones
+    # ... (El resto del código de los callbacks es idéntico) ...
     @app.callback(
         Output('output-publish-status', 'children'),
         [
@@ -120,7 +122,6 @@ def register_broker_callbacks(app: dash.Dash):
         
         return ""
 
-    # Callback para refrescar la lista de suscripciones
     @app.callback(
         Output('subscription-display', 'children'),
         [Input('interval-component', 'n_intervals')],
@@ -153,7 +154,9 @@ def register_broker_callbacks(app: dash.Dash):
         except FileNotFoundError:
             pass
         except Exception as e:
-            logger.log(f"Error al leer el archivo de estado: {e}", origen="NOTIF/DASH")
+            # Ahora usa el logger_app que se pasará como parte de la instancia del manager
+            if mqtt_client_manager:
+                mqtt_client_manager.logger.log(f"Error al leer el archivo de estado: {e}", origen="VISTA/DASH")
 
         if status == 'conectado':
             return 'status-circle status-connected'

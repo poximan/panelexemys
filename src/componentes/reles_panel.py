@@ -65,32 +65,24 @@ def register_reles_micom_callbacks(app):
         
         relative_observar_file_path = os.path.relpath(observar_file_path, project_root)
 
-        try:
-            # Leer el contenido actual del archivo
-            if os.path.exists(observar_file_path):
-                with open(observar_file_path, 'r') as f:
-                    content = f.read()
-                    if content:
-                        data = json.loads(content)
-                    else:
-                        data = {}
-            else:
-                data = {}
+        # Leer el contenido actual del archivo
+        if os.path.exists(observar_file_path):
+            with open(observar_file_path, 'r') as f:
+                content = f.read()
+                if content:
+                    data = json.loads(content)
+                else:
+                    data = {}
+        else:
+            data = {}
 
-            # Actualizar solo la clave 'reles_consultar'
-            data['reles_consultar'] = is_observing
-            
-            # Escribir el objeto JSON completo de vuelta al archivo
-            with open(observar_file_path, 'w') as f:
-                json.dump(data, f, indent=4) # Usamos indent=4 para una mejor legibilidad del JSON
+        # Actualizar solo la clave 'reles_consultar'
+        data['reles_consultar'] = is_observing
+        
+        # Escribir el objeto JSON completo de vuelta al archivo
+        with open(observar_file_path, 'w') as f:
+            json.dump(data, f, indent=4) # Usamos indent=4 para una mejor legibilidad del JSON
 
-            console_log_message = f"Observador de Reles: {'ON' if is_observing else 'OFF'}. Estado de 'reles_consultar' guardado en {relative_observar_file_path}"
-            print(console_log_message) 
-        
-        except (IOError, json.JSONDecodeError) as e:
-            console_log_message = f"ERROR al guardar el estado en {relative_observar_file_path}: {e}"
-            print(console_log_message)
-        
         return no_update
 
     @app.callback(
