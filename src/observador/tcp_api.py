@@ -52,4 +52,4 @@ def start_api_monitor(logger: Logosaurio, host: str, port: int):
         except Exception as e:
             logger.log(f"Error inesperado en el monitor TCP: {e}", origen="TCP/API")
                 
-        time.sleep(120)
+        time.sleep(300)     # segundo

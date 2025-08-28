@@ -1,102 +1,152 @@
-import paho.mqtt.client as mqtt
-from queue import Queue
-from .mqtt_driver import MqttDriver
-from src.logger import Logosaurio
+import queue
+from typing import List, Tuple, Optional
+from src.observador.mqtt_driver import MqttDriver
 import config
 
 class MqttClientManager:
     """
-    Gestiona el cliente MQTT, sus suscripciones y publicaciones.
-    Modificado para ser usado en una aplicacion Dash con un hilo de fondo.
+    Manager que orquesta el driver MQTT.
+    Correcciones realizadas:
+      - Si el segundo parametro 'subscriptions' es en realidad una Queue (instanciacion erronea),
+        se detecta y se usa como msg_queue en lugar de romper la iteracion de subscriptions.
+      - Se aporta get_connection_status() para que la vista pueda consultar el estado con strings.
+      - Se expone msg_queue para que broker_view y manager compartan la misma cola.
     """
-    def __init__(self, logger: Logosaurio, message_queue: Queue):
-        self.logger = logger
-        self.mqtt_driver = MqttDriver(logger=self.logger)
-        self.client = None
-        self.message_queue = message_queue
-        
-    def _on_connect_callback(self, client, userdata, flags, rc, properties=None):
-        """
-        Callback que se ejecuta cuando el cliente se conecta.
-        Aquí se manejan las suscripciones y otras acciones de inicio.
-        """
-        if rc == 0:
-            self.logger.log("MQTT Client Manager: Conectado y listo para suscribirse.", origen="OBS/MQTT")
-            
-            # Suscripciones se realizan ahora, cuando la conexión es exitosa.
-            self.subscribe(config.MQTT_ESTADO_EXEMYS)
-            self.subscribe(config.MQTT_ESTADO_EMAIL)
-            self.subscribe(config.MQTT_TOPIC_SENSOR)
-            
-            # Ejemplo de publicación que ahora funcionará
-            self.publish("estado/sistema", "online")
 
-        else:
-            self.logger.log(f"MQTT Client Manager: Fallo en la conexión, código: {rc}", origen="OBS/MQTT")
+    def __init__(self, logger, subscriptions: Optional[List[Tuple[str, int]]] = None):
+        self.log = logger
+        self._origen = "OBS/MQTT"
 
-    def _on_message_callback(self, client, userdata, msg):
-        """
-        Callback que se ejecuta cuando se recibe un mensaje.
-        """
-        message = {
-            'topic': msg.topic,
-            'payload': msg.payload.decode()
-        }
-        self.message_queue.put(message)
-        self.logger.log(f"MQTT Client Manager: Mensaje recibido y encolado - Tópico: {msg.topic}, Payload: {msg.payload.decode()}", origen="OBS/MQTT")
+        # Crear driver
+        self.driver = MqttDriver(logger=self.log)
+
+        # Mensajes entrantes: por defecto una cola nueva
+        self.msg_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
+
+        # Detectar si se paso la Queue en lugar de la lista de suscripciones (instanciacion erronea)
+        if isinstance(subscriptions, queue.Queue):
+            # Si detectamos una Queue, la usamos como msg_queue y dejamos subscriptions a None
+            self.msg_queue = subscriptions
+            subscriptions = None
+
+        # Suscripciones por defecto (si no se dieron)
+        if subscriptions is None:
+            subscriptions = [
+                ("estado/exemys", 0),
+                ("estado/email", 0),
+                ("estado/sensor", 0),
+            ]
+        self.subscriptions = subscriptions
+
+        # Registrar callbacks del driver hacia metodos del manager
+        self.driver.register_on_connect(self._on_driver_connect)
+        self.driver.register_on_disconnect(self._on_driver_disconnect)
+        self.driver.set_on_message(self._on_driver_message)
+
+        # Estado interno
+        self._started = False
+
+    # ----------------- Ciclo de vida
+    def start(self) -> bool:
+        if self._started:
+            return True
+
+        ok = self.driver.connect()
+        if not ok:
+            self.log.log("MQTT Client Manager: No se pudo establecer conexion inicial.", origen=self._origen)
+            return False
+
+        # Publica estado inicial si corresponde
+        online_topic = getattr(config, "MQTT_ONLINE_TOPIC", None)
+        online_payload = getattr(config, "MQTT_ONLINE_PAYLOAD", "online")
+        online_qos = int(getattr(config, "MQTT_ONLINE_QOS", 1))
+        online_retain = bool(getattr(config, "MQTT_ONLINE_RETAIN", True))
+        if online_topic:
+            self.driver.publish(online_topic, online_payload, qos=online_qos, retain=online_retain)
+
+        self._started = True
+        self.log.log("MQTT Client Manager: Conexion establecida correctamente.", origen=self._origen)
+        return True
+
+    def stop(self):
+        offline_topic = getattr(config, "MQTT_OFFLINE_TOPIC", None)
+        offline_payload = getattr(config, "MQTT_OFFLINE_PAYLOAD", "offline")
+        offline_qos = int(getattr(config, "MQTT_OFFLINE_QOS", 1))
+        offline_retain = bool(getattr(config, "MQTT_OFFLINE_RETAIN", True))
+        if offline_topic and self.driver.is_connected():
+            self.driver.publish(offline_topic, offline_payload, qos=offline_qos, retain=offline_retain)
+
+        self.driver.disconnect()
+        self._started = False
+
+    # ----------------- Callbacks encadenados del driver
+    def _on_driver_connect(self, client, userdata, flags, rc):
+        # Re-suscribir en cada reconexion; aqui esperamos que self.subscriptions sea iterable de tuples
+        self.log.log("MQTT Client Manager: on_connect OK. Suscribiendo topicos...", origen=self._origen)
+        try:
+            for topic, qos in self.subscriptions:
+                # subscribe no bloquea si el driver esta conectado; driver hace log internamente
+                self.driver.subscribe(topic, qos)
+        except TypeError:
+            # Proteccion adicional: si por alguna razon subscriptions no es iterable,
+            # loggeamos y no propagamos la excepcion para no romper el hilo de callbacks
+            self.log.log("MQTT Client Manager: subscriptions no es iterable en _on_driver_connect.", origen=self._origen)
+
+    def _on_driver_disconnect(self, client, userdata, rc):
+        # no hay logica extra, paho maneja reintentos en connect_async + loop_start
+        pass
+
+    def _on_driver_message(self, client, userdata, msg):
+        # Decodificar y encolar el mensaje para el resto del sistema
+        try:
+            payload = msg.payload.decode(errors="replace")
+        except Exception:
+            payload = str(msg.payload)
+
+        # Log liviano
+        self.log.log(f"Mensaje en {msg.topic}: {payload}", origen=self._origen)
+
+        try:
+            self.msg_queue.put_nowait((msg.topic, payload))
+        except queue.Full:
+            # descartar si la cola esta llena; no queremos lanzar excepciones en callbacks
+            pass
+
+    # ----------------- API hacia el resto del sistema
+    def publish(self, topic: str, payload, qos: int = 0, retain: bool = False):
+        self.driver.publish(topic, payload, qos=qos, retain=retain)
 
     def subscribe(self, topic: str, qos: int = 0):
-        """
-        Suscribe el cliente a un tópico específico.
-        """
-        if self.client and self.client.is_connected():
-            result, mid = self.client.subscribe(topic, qos)
-            if result == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.log(f"MQTT Client Manager: Suscrito al tópico '{topic}' (mid={mid})", origen="OBS/MQTT")
-            else:
-                self.logger.log(f"MQTT Client Manager: Error al suscribirse al tópico '{topic}': {result}", origen="OBS/MQTT")
-        else:
-            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede suscribir.", origen="OBS/MQTT")
+        # Agregar suscripcion dinamica y suscribir en el driver si ya conectado
+        self.subscriptions.append((topic, qos))
+        if self.driver.is_connected():
+            self.driver.subscribe(topic, qos)
 
-    def publish(self, topic: str, payload: str, qos: int = 0, retain: bool = False):
-        """
-        Publica un mensaje en un tópico específico.
-        """
-        if self.client and self.client.is_connected():
-            info = self.client.publish(topic, payload, qos, retain)
-            info.wait_for_publish()
-            self.logger.log(f"MQTT Client Manager: Mensaje publicado en '{topic}': '{payload}'", origen="OBS/MQTT")
-        else:
-            self.logger.log("MQTT Client Manager: Cliente no conectado, no se puede publicar.", origen="OBS/MQTT")
+    def get_message(self, timeout: Optional[float] = None):
+        try:
+            return self.msg_queue.get(timeout=timeout)
+        except queue.Empty:
+            return None
 
-    def start(self):
-        """
-        Inicia el bucle de red del cliente MQTT. Este método es no-bloqueante.
-        """
-        # El driver ahora maneja la sincronización.
-        self.client = self.mqtt_driver.connect()
-        if self.client:
-            # Asignar los callbacks específicos de este manager
-            self.client.on_connect = self._on_connect_callback
-            self.client.on_message = self._on_message_callback
-            self.logger.log("MQTT Client Manager: Bucle de red MQTT iniciado. Esperando conexión...", origen="OBS/MQTT")
-        else:
-            self.logger.log("MQTT Client Manager: No se pudo iniciar el bucle MQTT, conexión fallida.", origen="OBS/MQTT")
-    
-    def stop(self):
-        """
-        Detiene el bucle de red del cliente MQTT.
-        """
-        if self.client:
-            # El driver se encarga de detener el bucle
-            self.mqtt_driver.disconnect()
-            self.logger.log("MQTT Client Manager: Bucle de red MQTT detenido.", origen="OBS/MQTT")
-        else:
-            self.logger.log("MQTT Client Manager: Cliente MQTT no instanciado.", origen="OBS/MQTT")
+    def is_connected(self) -> bool:
+        return self.driver.is_connected()
 
     def get_connection_status(self) -> str:
         """
-        Devuelve el estado actual de la conexión del cliente MQTT,
-        delegando la llamada al driver.
+        Retorna 'conectado' si el driver indica conectado, 'conectando' si start() fue llamado
+        y aun no hay conexion, o 'desconectado' en otro caso.
+        Esta funcion facilita la integracion con la UI que espera strings.
         """
-        return self.mqtt_driver.get_connection_status()
+        if self.driver.is_connected():
+            return 'conectado'
+        if self._started:
+            return 'conectando'
+        return 'desconectado'
+
+    def set_message_queue(self, q: "queue.Queue[Tuple[str,str]]"):
+        """
+        Permite inyectar/exponer una cola externa para que la vista y el manager usen la misma cola.
+        Evita errores si la inicializacion en otro lugar paso la cola por error.
+        """
+        if isinstance(q, queue.Queue):
+            self.msg_queue = q

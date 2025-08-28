@@ -1,12 +1,8 @@
-# src/notificador/alarm_notifier.py
-
 import os
 import time
-from datetime import datetime
 from src.logger import Logosaurio
+from .notif_manager import NotifManager
 import config
-from src.persistencia.dao_historicos import historicos_dao
-from .notif_manager import NotifManager # <-- Importamos el nuevo orquestador
 
 class AlarmNotifier:
     def __init__(self, logger: Logosaurio):
@@ -41,18 +37,8 @@ class AlarmNotifier:
 
         while True:
             try:
-                latest_states_from_db = historicos_dao.get_latest_states_for_all_grds()
-                total_grds_for_kpi = len(latest_states_from_db)
-                connected_grds_count = sum(1 for state in latest_states_from_db.values() if state == 1)
-                
-                current_percentage = 0
-                if total_grds_for_kpi > 0:
-                    current_percentage = (connected_grds_count / total_grds_for_kpi) * 100
-                
-                disconnected_grds_data = historicos_dao.get_all_disconnected_grds()
-                
-                # Delegamos la lógica de evaluación y notificación al NotifManager
-                self.notifier.process_alarms(current_percentage, disconnected_grds_data)
+                # La lógica de obtención de datos se delega completamente
+                self.notifier.run_alarm_processing()
 
             except Exception as e:
                 self.logger.log(f"ERROR en el observador de alarmas: {e}", origen="NOTIF/ORQ")

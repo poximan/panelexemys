@@ -1,33 +1,32 @@
+import os
+import threading
+from queue import Queue
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import config
 
-# Declara las variables globales sin inicializarlas.
-# Serán inicializadas por la función `initialize_broker_components`.
-message_queue = None
+message_queue: Queue | None = None
 mqtt_client_manager = None
 
-# Nombre del archivo de estado (debe coincidir con el del MqttDriver)
-STATUS_FILE = "./src/componentes/estado_broker.txt"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+STATUS_FILE = os.path.join(SCRIPT_DIR, 'estado_broker.txt')
 
-# --- Layout de la pagina "Broker" ---
+
 def get_broker_layout():
-    # ... (El resto del código de get_broker_layout() es idéntico) ...
+    status_interval_ms = getattr(config, 'BROKER_STATUS_REFRESH_INTERVAL_MS', 3000)
+
     return html.Div(children=[
         html.H1("Broker MQTT", className='main-title'),
-        
-        # Indicador de estado del broker
+
         html.Div(className="status-indicator-wrapper", children=[
-            html.Span("Estado de la conexión:"),
+            html.Span("Estado de la conexion:"),
             html.Div(id='broker-status-indicator', className='status-circle status-disconnected')
         ]),
 
         html.Div(className='broker-grid-container', children=[
-            # Columna de Publicaciones
             html.Div(className='broker-panel', children=[
                 html.H3("Publicaciones", className='text-xl font-semibold mb-4'),
-                
                 html.P("Haz clic para publicar un mensaje de prueba.", className='text-gray-600 mb-4'),
                 html.Div(className='flex flex-col space-y-4', children=[
                     html.Button(
@@ -51,43 +50,44 @@ def get_broker_layout():
                     html.Div(id='output-publish-status', style={'display': 'none'})
                 ])
             ]),
-            # Columna de Suscripciones
             html.Div(className='broker-panel', children=[
                 html.H3("Suscripciones", className='text-xl font-semibold mb-4'),
-                html.P("Mensajes recibidos de los tópicos suscritos.", className='text-gray-600 mb-4'),
+                html.P("Mensajes recibidos de los topicos (incluyendo los publicados por esta interfaz).", className='text-gray-600 mb-4'),
                 html.Div(id='subscription-display', className='bg-gray-100 p-4 rounded h-96 overflow-y-scroll space-y-2 text-sm font-mono', children=[
                     html.P("Esperando mensajes...", className='text-gray-400')
                 ])
             ]),
         ]),
-        # dcc.Interval para refrescar la vista de suscripciones cada 1 segundo
-        dcc.Interval(
-            id='interval-component',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
-            n_intervals=0
-        ),
-        # dcc.Interval para refrescar el estado del broker cada 500ms
-        dcc.Interval(
-            id='broker-status-interval',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
-            n_intervals=0
-        )
+
+        dcc.Interval(id='interval-component', interval=config.DASHBOARD_REFRESH_INTERVAL_MS, n_intervals=0),
+        dcc.Interval(id='broker-status-interval', interval=status_interval_ms, n_intervals=0)
     ])
+
 
 def initialize_broker_components(manager, queue):
     """
-    Función para inicializar el cliente MQTT y la cola en el módulo de vista.
-
-    La palabra 'global' le dice a Python que las variables mqtt_client_manager y
-    message_queue no son locales sino globales declaradas al principio del módulo
+    Se asignan las referencias compartidas. Adicionalmente se intenta
+    sincronizar la cola entre el manager y la vista para evitar inconsistencias.
     """
     global mqtt_client_manager, message_queue
     mqtt_client_manager = manager
     message_queue = queue
 
-# --- Callbacks para la pagina "Broker" ---
+    # Si el manager expone set_message_queue o msg_queue, sincronizamos
+    try:
+        if mqtt_client_manager is not None:
+            if hasattr(mqtt_client_manager, 'set_message_queue'):
+                mqtt_client_manager.set_message_queue(message_queue)
+            elif hasattr(mqtt_client_manager, 'msg_queue'):
+                # Forzar que ambos usen exactamente la misma cola
+                mqtt_client_manager.msg_queue = message_queue
+    except Exception:
+        # no queremos que un fallo aqui rompa la inicializacion de la UI
+        pass
+
+
 def register_broker_callbacks(app: dash.Dash):
-    # ... (El resto del código de los callbacks es idéntico) ...
+
     @app.callback(
         Output('output-publish-status', 'children'),
         [
@@ -104,23 +104,27 @@ def register_broker_callbacks(app: dash.Dash):
 
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-        topic = ""
-        payload = ""
-
         if button_id == 'btn-publish-estados':
-            topic = config.MQTT_ESTADO_EXEMYS
-            payload = "Estado: OK"
+            topic, payload = config.MQTT_ESTADO_EXEMYS, "Estado: OK"
         elif button_id == 'btn-publish-control':
-            topic = config.MQTT_ESTADO_EMAIL
-            payload = "Comando: ON"
+            topic, payload = config.MQTT_ESTADO_EMAIL, "Comando: ON"
         elif button_id == 'btn-publish-sensor':
-            topic = config.MQTT_TOPIC_SENSOR
-            payload = "Temperatura: 25.5C"
-        
-        # Publica el mensaje usando el cliente global
+            topic, payload = config.MQTT_TOPIC_SENSOR, "Temperatura: 25.5C"
+        else:
+            return ""
+
+        if mqtt_client_manager is None:
+            return "NO_MQTT_MANAGER"
+
+        # Consultar estado via la API del manager (get_connection_status fue añadida)
+        status = mqtt_client_manager.get_connection_status() if mqtt_client_manager else 'desconectado'
+        if status != 'conectado':
+            # intentar reconectar en hilo distinto para no bloquear la UI
+            threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
+            return "RECONNECTING"
+
         mqtt_client_manager.publish(topic, payload)
-        
-        return ""
+        return "PUBLISHED"
 
     @app.callback(
         Output('subscription-display', 'children'),
@@ -128,19 +132,31 @@ def register_broker_callbacks(app: dash.Dash):
         [State('subscription-display', 'children')]
     )
     def update_subscriptions(n, current_children):
+        # Preferir la cola compartida 'message_queue' si esta disponible,
+        # si no, intentar usar la cola que pueda exponer el manager
+        q = message_queue
+        if q is None and mqtt_client_manager is not None and hasattr(mqtt_client_manager, 'msg_queue'):
+            q = mqtt_client_manager.msg_queue
+
+        if q is None:
+            return current_children
+
         new_messages = []
-        while not message_queue.empty():
-            msg = message_queue.get()
+        # consumir la cola sin bloquear
+        while True:
+            try:
+                topic, payload = q.get_nowait()
+            except Exception:
+                break
             new_messages.append(
-                html.Div(f"[{msg['topic']}] {msg['payload']}", className='bg-gray-200 p-2 rounded')
+                html.Div(f"[{topic}] {payload}", className='bg-gray-200 p-2 rounded')
             )
-        
+
         if not new_messages:
             return current_children
-        
-        updated_children = new_messages + (current_children if isinstance(current_children, list) else [current_children])
-        
-        return updated_children[:50]
+
+        existing = current_children if isinstance(current_children, list) else [current_children]
+        return (new_messages + existing)[:50]
 
     @app.callback(
         Output('broker-status-indicator', 'className'),
@@ -148,15 +164,12 @@ def register_broker_callbacks(app: dash.Dash):
     )
     def update_broker_status(n):
         status = "desconectado"
-        try:
-            with open(STATUS_FILE, "r") as f:
-                status = f.read().strip()
-        except FileNotFoundError:
-            pass
-        except Exception as e:
-            # Ahora usa el logger_app que se pasará como parte de la instancia del manager
-            if mqtt_client_manager:
-                mqtt_client_manager.logger.log(f"Error al leer el archivo de estado: {e}", origen="VISTA/DASH")
+        if mqtt_client_manager is not None:
+            # usar get_connection_status para obtener un string
+            try:
+                status = mqtt_client_manager.get_connection_status()
+            except Exception:
+                status = 'desconectado'
 
         if status == 'conectado':
             return 'status-circle status-connected'

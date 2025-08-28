@@ -1,130 +1,180 @@
-import paho.mqtt.client as mqtt
 import ssl
 import threading
-from src.logger import Logosaurio
+from typing import Callable, List, Optional
+import paho.mqtt.client as mqtt
 import config
-
-# Nombre del archivo para la comunicacion de estado entre hilos
-STATUS_FILE = "./src/componentes/estado_broker.txt"
 
 class MqttDriver:
     """
-    Clase para gestionar la conexion de bajo nivel con el broker MQTT.
-    Configura el cliente MQTT con opciones de SSL, usuario y contraseña.
+    Capa delgada sobre paho-mqtt.
+    Mantener cambios al minimo; este modulo expone connect/ disconnect/ publish/ subscribe/ callbacks.
     """
-    def __init__(self, logger: Logosaurio):
-        self.logger = logger
-        self.client = None
-        self._status = "desconectado"
-        self._write_status_to_file("desconectado")
-        self._connection_event = threading.Event()  # Evento para sincronizar la conexion
 
-    def _write_status_to_file(self, status: str):
-        """Escribe el estado actual de la conexion en un archivo."""
+    def __init__(self, logger):
+        self.log = logger
+        self._origen = "OBS/MQTT"
+
+        client_id = getattr(config, "MQTT_CLIENT_ID", "")
+        clean_session = getattr(config, "MQTT_CLEAN_SESSION", True)
+
         try:
-            with open(STATUS_FILE, "w") as f:
-                f.write(status)
-        except Exception as e:
-            self.logger.log(f"MQTT Driver: Error al escribir en el archivo de estado: {e}", origen="OBS/MQTT")
+            self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id, clean_session=clean_session)
+        except TypeError:
+            self.client = mqtt.Client(client_id=client_id, clean_session=clean_session)
 
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
-        """Callback que se ejecuta cuando el cliente se conecta al broker."""
-        if rc == 0:
-            self.logger.log("MQTT Driver: Conectado exitosamente.", origen="OBS/MQTT")
-            self._status = "conectado"
-            self._write_status_to_file("conectado")
-            # Disparar el evento de conexión para desbloquear el hilo principal
-            self._connection_event.set()
-        else:
-            self.logger.log(f"MQTT Driver: Fallo en la conexion, codigo: {rc}. Reintentando...", origen="OBS/MQTT")
-            self._status = "desconectado"
-            self._write_status_to_file("desconectado")
-            # En caso de fallo, limpiar el evento para que la proxima llamada espere
-            self._connection_event.clear()
+        username = getattr(config, "MQTT_BROKER_USERNAME", None)
+        password = getattr(config, "MQTT_BROKER_PASSWORD", None)
+        if username is not None:
+            self.client.username_pw_set(username, password)
 
-    def _on_disconnect(self, client, userdata, flags, rc, properties=None):
-        """Callback que se ejecuta cuando el cliente se desconecta del broker."""
-        self.logger.log(f"MQTT Driver: Desconectado del broker. Codigo: {rc}.", origen="OBS/MQTT")
-        self._status = "desconectado"
-        self._write_status_to_file("desconectado")
+        will_topic = getattr(config, "MQTT_WILL_TOPIC", None)
+        will_payload = getattr(config, "MQTT_WILL_PAYLOAD", "offline")
+        will_qos = getattr(config, "MQTT_WILL_QOS", 1)
+        will_retain = getattr(config, "MQTT_WILL_RETAIN", True)
+        if will_topic:
+            self.client.will_set(will_topic, payload=will_payload, qos=will_qos, retain=will_retain)
 
-    def connect(self) -> mqtt.Client:
-        """
-        Intenta conectar el cliente MQTT al broker y espera hasta que la conexion se confirme.
-        """
-        # Limpiar el evento para una nueva conexión
-        self._connection_event.clear()
-
-        # Si el cliente ya existe y está conectado, no hacer nada
-        if self.client and self.client.is_connected():
-            self.logger.log("MQTT Driver: Cliente ya conectado.", origen="OBS/MQTT")
-            return self.client
-        
-        self.logger.log(f"MQTT Driver: Intentando conectar a {config.MQTT_BROKER_HOST}:{config.MQTT_BROKER_PORT}...", origen="OBS/MQTT")
-        self._status = "conectando"
-        self._write_status_to_file("conectando")
-        
-        try:
-            self.client = mqtt.Client(
-                client_id="panelexemys", 
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+        if getattr(config, "MQTT_BROKER_USE_TLS", False):
+            ca = getattr(config, "MQTT_BROKER_CA_CERT", None)
+            certfile = getattr(config, "MQTT_CLIENT_CERTFILE", None)
+            keyfile = getattr(config, "MQTT_CLIENT_KEYFILE", None)
+            tls_insecure = getattr(config, "MQTT_TLS_INSECURE", False)
+            self.client.tls_set(
+                ca_certs=ca,
+                certfile=certfile,
+                keyfile=keyfile,
+                cert_reqs=ssl.CERT_REQUIRED,
+                tls_version=ssl.PROTOCOL_TLS_CLIENT,
             )
-            self.client.on_connect = self._on_connect
-            self.client.on_disconnect = self._on_disconnect
-            
-            # Configuracion de credenciales
-            self.client.username_pw_set(config.MQTT_BROKER_USERNAME, config.MQTT_BROKER_PASSWORD)
+            self.client.tls_insecure_set(tls_insecure)
+            self.log.log(f"TLS configurado (insecure={tls_insecure}).", origen=self._origen)
 
-            # Configuracion de TLS/SSL
-            if config.MQTT_USE_TLS:
-                self.client.tls_set(tls_version=ssl.PROTOCOL_TLSv1_2)
-                self.client.tls_insecure_set(False)
-                self.logger.log("MQTT Driver: TLS/SSL configurado con verificación de certificado.", origen="OBS/MQTT")
-            else:
-                self.logger.log("MQTT Driver: TLS/SSL deshabilitado.", origen="OBS/MQTT")
-                
-            # Deshabilitar la reconexión automática de la biblioteca
-            # para controlarla manualmente si es necesario
-            self.client.reconnect_delay_set(min_delay=5, max_delay=30)
+        self.keepalive = int(getattr(config, "MQTT_BROKER_KEEPALIVE", 60))
+        min_delay = int(getattr(config, "MQTT_RECONNECT_DELAY_MIN", 2))
+        max_delay = int(getattr(config, "MQTT_RECONNECT_DELAY_MAX", 60))
+        try:
+            self.client.reconnect_delay_set(min_delay=min_delay, max_delay=max_delay)
+        except AttributeError:
+            pass
 
-            # Iniciar el bucle de red ANTES de la conexión
-            self.client.loop_start()
+        self.client.on_connect = self._on_connect_internal
+        self.client.on_disconnect = self._on_disconnect_internal
+        self.client.on_message = self._on_message_internal
 
-            # Conectar al broker
-            self.client.connect(config.MQTT_BROKER_HOST, config.MQTT_BROKER_PORT, 120)
-            
-            # Esperar hasta que el callback _on_connect sea llamado y la conexión se establezca
-            if self._connection_event.wait(timeout=30):
-                return self.client
-            else:
-                self.logger.log("MQTT Driver: Tiempo de espera agotado para la conexión.", origen="OBS/MQTT")
-                self.client.loop_stop()
-                return None
+        self._extra_on_connect: List[Callable] = []
+        self._extra_on_disconnect: List[Callable] = []
+        self._extra_on_message: Optional[Callable] = None
+
+        self._connected_event = threading.Event()
+        self._connected = False
+        self._loop_started = False
+
+    def _on_connect_internal(self, client, userdata, flags, rc, *args):
+        if rc == 0:
+            self._connected = True
+            self._connected_event.set()
+            self.log.log("MQTT Driver: on_connect OK (rc=0).", origen=self._origen)
+        else:
+            self._connected = False
+            self.log.log(f"MQTT Driver: on_connect con error (rc={rc}).", origen=self._origen)
+
+        for cb in self._extra_on_connect:
+            try:
+                cb(client, userdata, flags, rc)
+            except Exception as e:
+                self.log.log(f"MQTT Driver: error en callback externo on_connect: {e}", origen=self._origen)
+
+    def _on_disconnect_internal(self, client, userdata, rc, *args):
+        self._connected = False
+        self._connected_event.clear()
+        self.log.log(f"MQTT Client Manager: on_disconnect (rc={rc}).", origen=self._origen)
+
+        for cb in self._extra_on_disconnect:
+            try:
+                cb(client, userdata, rc)
+            except Exception as e:
+                self.log.log(f"MQTT Driver: error en callback externo on_disconnect: {e}", origen=self._origen)
+
+    def _on_message_internal(self, client, userdata, msg):
+        if self._extra_on_message is not None:
+            try:
+                self._extra_on_message(client, userdata, msg)
+                return
+            except Exception as e:
+                self.log.log(f"MQTT Driver: error en callback externo on_message: {e}", origen=self._origen)
+        try:
+            payload = msg.payload.decode(errors="replace")
+        except Exception:
+            payload = str(msg.payload)
+        self.log.log(f"MQTT mensaje: {msg.topic} -> {payload}", origen=self._origen)
+
+    def register_on_connect(self, cb: Callable):
+        self._extra_on_connect.append(cb)
+
+    def register_on_disconnect(self, cb: Callable):
+        self._extra_on_disconnect.append(cb)
+
+    def set_on_message(self, cb: Callable):
+        self._extra_on_message = cb
+
+    def connect(self) -> bool:
+        host = getattr(config, "MQTT_BROKER_HOST", "localhost")
+        port = int(getattr(config, "MQTT_BROKER_PORT", 1883))
+        timeout = int(getattr(config, "MQTT_CONNECT_TIMEOUT", 15))
+
+        self.log.log(
+            f"MQTT Driver: Intentando conectar a {host}:{port} (keepalive={self.keepalive})",
+            origen=self._origen,
+        )
+
+        try:
+            self.client.connect_async(host, port, keepalive=self.keepalive)
         except Exception as e:
-            self.logger.log(f"MQTT Driver: Error critico al conectar: {e}.", origen="OBS/MQTT")
-            self._status = "desconectado"
-            self._write_status_to_file("desconectado")
-            return None
+            self.log.log(f"MQTT Driver: excepcion en connect_async: {e}", origen=self._origen)
+            return False
+
+        if not self._loop_started:
+            self.client.loop_start()
+            self._loop_started = True
+
+        if self._connected_event.wait(timeout=timeout):
+            self.log.log("MQTT Driver: Conexión confirmada por callback dentro del timeout.", origen=self._origen)
+            return True
+
+        self.log.log("MQTT Driver: Timeout esperando confirmacion de conexion.", origen=self._origen)
+        return False
 
     def disconnect(self):
-        """
-        Desconecta el cliente MQTT del broker.
-        """
-        if self.client:
-            self.client.loop_stop()
+        try:
             self.client.disconnect()
-            self._status = "desconectado"
-            self._write_status_to_file("desconectado")
-            self.logger.log("MQTT Driver: Desconectado del broker MQTT.", origen="OBS/MQTT")
-        else:
-            self.logger.log("MQTT Driver: Cliente MQTT no instanciado.", origen="OBS/MQTT")
+        except Exception as e:
+            self.log.log(f"MQTT Driver: error en disconnect(): {e}", origen=self._origen)
+        finally:
+            if self._loop_started:
+                self.client.loop_stop()
+                self._loop_started = False
+            self._connected = False
+            self._connected_event.clear()
 
-    def get_client(self) -> mqtt.Client | None:
-        """Retorna la instancia del cliente MQTT."""
-        return self.client
+    def publish(self, topic: str, payload, qos: int = 0, retain: bool = False):
+        if not self._connected:
+            self.log.log(f"MQTT Driver: publish abortado; cliente desconectado (topic={topic}).", origen=self._origen)
+            return
+        try:
+            res = self.client.publish(topic, payload, qos=qos, retain=retain)
+            self.log.log(f"MQTT Driver: publish('{topic}') -> {res.rc}", origen=self._origen)
+        except Exception as e:
+            self.log.log(f"MQTT Driver: error publicando en '{topic}': {e}", origen=self._origen)
 
-    def get_connection_status(self) -> str:
-        """
-        Devuelve el estado actual de la conexión del cliente MQTT.
-        """
-        return self._status
+    def subscribe(self, topic: str, qos: int = 0):
+        if not self._connected:
+            self.log.log(f"MQTT Driver: subscribe abortado; cliente desconectado (topic={topic}).", origen=self._origen)
+            return
+        try:
+            res = self.client.subscribe(topic, qos=qos)
+            self.log.log(f"MQTT Client Manager: subscribe('{topic}') -> {res}", origen=self._origen)
+        except Exception as e:
+            self.log.log(f"MQTT Driver: error al suscribirse a '{topic}': {e}", origen=self._origen)
+
+    def is_connected(self) -> bool:
+        return self._connected

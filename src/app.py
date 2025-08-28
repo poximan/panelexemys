@@ -87,7 +87,7 @@ if __name__ == '__main__':
         logger_app.log("5º: Lanzando el monitor de actividad TCP en un hilo separado...", origen="APP")
         tcp_monitor_thread = threading.Thread(
             target=start_api_monitor,
-            args=(logger_app, "1.1.1.1", 40000,)
+            args=(logger_app, "200.63.163.36", 40000,)
         )
         tcp_monitor_thread.daemon = True
         tcp_monitor_thread.start()

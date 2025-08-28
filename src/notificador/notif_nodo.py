@@ -20,7 +20,7 @@ class NotifNodo:
         # Limpiar estados de GRDs reconectados o no aplicables
         grds_to_remove = [grd_id for grd_id in list(self.individual_grd_alarm_states.keys())
                           if grd_id not in current_disconnected_ids or current_percentage < config.GLOBAL_THRESHOLD_ROJO]
-
+               
         for grd_id in grds_to_remove:
             if grd_id in self.individual_grd_alarm_states:
                 self.logger.log(
@@ -48,9 +48,9 @@ class NotifNodo:
                 else:
                     sustained_duration = datetime.datetime.now() - self.individual_grd_alarm_states[grd_id]['start_time']
                     min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
-                    
+
                     if sustained_duration >= min_duration and not self.individual_grd_alarm_states[grd_id]['triggered']:
                         self.individual_grd_alarm_states[grd_id]['triggered'] = True
                         grds_to_trigger.append(self.individual_grd_alarm_states[grd_id])
-            
+
         return grds_to_trigger
