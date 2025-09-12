@@ -1,38 +1,23 @@
 """
 RPC minimalista sobre MQTT.
-- El cliente (movil) PUBLICA en "app/req/<accion>" un JSON:
-  {
-    "reply_to": "estado/exemys" | "estado/sensor" | "estado/email",
-    "corr": "uuid-o-id",
-    "params": { ... }   # opcional
-  }
-
-- El servidor RESPONDE PUBLICANDO en el "reply_to" (que ya esta suscripto por el movil):
-  {
-    "type": "rpc",
-    "action": "<accion>",
-    "corr": "<mismo id>",
-    "ok": true|false,
-    "data": { ... }     # o "error": "..."
-  }
-
-Acciones soportadas iniciales (config.MQTT_RPC_ALLOWED_ACTIONS):
-  - get_global_status  -> responde con resumen global + ultimos estados por GRD (estado/exemys)
-  - get_modem_status   -> responde con estado modem (estado/sensor)
+- El cliente publica en "app/req/<accion>" con reply_to y corr.
+- El servidor responde publicando en reply_to uno de los 3 topicos del movil.
 """
 
 import json
-import os
-from typing import Tuple, Optional
+from typing import Optional
 from datetime import datetime
-
-from src.persistencia.dao_historicos import historicos_dao
+from src.persistencia.dao.dao_historicos import historicos_dao
 from src.logger import Logosaurio
+from src.utils.paths import load_observar_key
 import config
 
-REQ_PREFIX = config.MQTT_RPC_REQ_ROOT  # "app/req"
+REQ_PREFIX = config.MQTT_RPC_REQ_ROOT
 
 class MqttRequestRouter:
+    """
+    enrutador simple de requests rpc sobre mqtt basado en topicos
+    """
     def __init__(self, logger: Logosaurio, mqtt_manager, message_queue):
         self.log = logger
         self.manager = mqtt_manager
@@ -40,7 +25,9 @@ class MqttRequestRouter:
         self._origen = "OBS/RPC"
 
     def start(self):
-        # suscribirse a app/req/# para recibir requests
+        """
+        inicia suscripcion a requests y procesa mensajes entrantes
+        """
         self.manager.subscribe(f"{REQ_PREFIX}/#", qos=1)
         self.log.log(f"RPC MQTT: suscripto a {REQ_PREFIX}/#", origen=self._origen)
 
@@ -50,14 +37,14 @@ class MqttRequestRouter:
                 continue
             topic, payload = item
             if not topic.startswith(f"{REQ_PREFIX}/"):
-                # mensaje de otra cosa (la UI quizas lo consume tambien)
                 continue
 
-            action = topic[len(REQ_PREFIX)+1:]  # luego de "app/req/"
+            action = topic[len(REQ_PREFIX) + 1:]
+
             try:
                 req = json.loads(payload)
             except Exception:
-                self._emit_error(None, "estado/email", action, "payload JSON invalido")
+                self._emit_error(None, config.MQTT_TOPIC_GRDS, action, "payload JSON invalido")
                 continue
 
             reply_to = req.get("reply_to")
@@ -69,11 +56,9 @@ class MqttRequestRouter:
                 continue
 
             if reply_to not in config.MQTT_RPC_ALLOWED_REPLY_TO:
-                # forzar siempre responder en estado/email si reply_to no es valido
-                self._emit_error(corr, config.MQTT_ESTADO_EMAIL, action, "reply_to invalido")
+                self._emit_error(corr, config.MQTT_TOPIC_GRDS, action, "reply_to invalido")
                 continue
 
-            # despachar
             if action == "get_global_status":
                 self._handle_get_global_status(corr, reply_to)
             elif action == "get_modem_status":
@@ -84,6 +69,9 @@ class MqttRequestRouter:
     # ----------------- handlers -----------------
 
     def _handle_get_global_status(self, corr: str, reply_to: str):
+        """
+        arma resumen global de conectividad y estados actuales por grd
+        """
         latest_states = historicos_dao.get_latest_states_for_all_grds()
         total = len(latest_states)
         conectados = sum(1 for v in latest_states.values() if v == 1)
@@ -97,41 +85,37 @@ class MqttRequestRouter:
         self._emit_ok(corr, reply_to, "get_global_status", data)
 
     def _handle_get_modem_status(self, corr: str, reply_to: str):
-        # reutilizamos el archivo 'observar.json' (igual que NotifModem/tcp_api)
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        observar_file_path = os.path.join(script_dir, 'observar.json')
-        estado = "conectado"
-        try:
-            if os.path.exists(observar_file_path):
-                with open(observar_file_path, 'r') as f:
-                    content = f.read().strip()
-                    data = json.loads(content) if content else {}
-                    estado = data.get("ip200_estado", "conectado")
-        except Exception:
-            pass
-
+        """
+        devuelve estado del modem desde observar.json -> ip200_estado
+        """
+        estado = str(load_observar_key("ip200_estado", "conectado"))
         data = {"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "estado": estado}
         self._emit_ok(corr, reply_to, "get_modem_status", data)
 
     # ----------------- emisores -----------------
 
     def _emit_ok(self, corr: Optional[str], reply_to: str, action: str, data: dict):
+        """
+        publica respuesta ok en el topico reply_to
+        """
         msg = {"type": "rpc", "action": action, "corr": corr, "ok": True, "data": data}
         self.manager.publish(
             reply_to,
             json.dumps(msg, ensure_ascii=False),
-            qos=config.MQTT_PUBLISH_QOS_STATE if reply_to != config.MQTT_ESTADO_EMAIL else config.MQTT_PUBLISH_QOS_EVENT,
-            retain=False,  # las respuestas RPC no se retienen
+            qos=config.MQTT_PUBLISH_QOS_STATE,
+            retain=False,
         )
 
     def _emit_error(self, corr: Optional[str], reply_to: str, action: str, error: str):
+        """
+        publica respuesta de error en reply_to valido o en GRDS como fallback
+        """
         if reply_to not in config.MQTT_RPC_ALLOWED_REPLY_TO:
-            # fallback
-            reply_to = config.MQTT_ESTADO_EMAIL
+            reply_to = config.MQTT_TOPIC_GRDS
         msg = {"type": "rpc", "action": action, "corr": corr, "ok": False, "error": error}
         self.manager.publish(
             reply_to,
             json.dumps(msg, ensure_ascii=False),
-            qos=config.MQTT_PUBLISH_QOS_EVENT,
+            qos=config.MQTT_PUBLISH_QOS_STATE,
             retain=False,
         )

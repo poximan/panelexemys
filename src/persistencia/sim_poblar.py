@@ -1,11 +1,11 @@
+import os
 import sqlite3
 from datetime import datetime, timedelta
 import random
 import numpy as np
-import os
-import config                   # Importa el archivo de configuracion
 from . import ddl_esquema       # Importa el modulo para asegurar el esquema
-from .dao_grd import grd_dao as dao 
+from .dao.dao_grd import grd_dao as dao 
+import config                   # Importa el archivo de configuracion
 
 # Rutas de la base de datos usando config.py
 DATABASE_DIR = config.DATABASE_DIR

@@ -1,18 +1,18 @@
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from src.persistencia.dao_grd import grd_dao
-import config
 from flask import request
 from queue import Queue
+from dash.dependencies import Input, Output, State
+from src.persistencia.dao.dao_grd import grd_dao
+import config
 
-from src.componentes.middleware_dash import get_dashboard, register_dashboard_callbacks
-from src.componentes.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
-from src.componentes.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
-from src.componentes.middleware_kpi import register_kpi_panel_callbacks
-from src.componentes.middleware_histograma import register_controls_and_graph_callbacks
-from src.componentes.middleware_tabla import register_main_data_table_callbacks
-from src.componentes.broker_view import get_broker_layout, register_broker_callbacks, initialize_broker_components
+from src.web.dashboard.middleware_dash import get_dashboard, register_dashboard_callbacks
+from src.web.dashboard.middleware_kpi import register_kpi_panel_callbacks
+from src.web.dashboard.middleware_histograma import register_controls_and_graph_callbacks
+from src.web.dashboard.middleware_tabla import register_main_data_table_callbacks
+from src.web.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
+from src.web.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
+from src.web.broker.broker_view import get_broker_layout, register_broker_callbacks, initialize_broker_components
 
 # Definir la clave de acceso para las paginas de administrador
 ADMIN_KEY = '12345'

@@ -1,9 +1,9 @@
 import os
 import threading
-from queue import Queue, Empty
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+from queue import Queue, Empty
 import json
 import config
 

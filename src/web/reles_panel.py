@@ -1,26 +1,20 @@
 from dash import html, dcc, no_update, dash_table
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
-import os
-import json # Importamos la libreria json
 from datetime import datetime
-from src.persistencia.dao_reles import reles_dao
-from src.persistencia.dao_fallas_reles import fallas_reles_dao
+from src.persistencia.dao.dao_reles import reles_dao
+from src.persistencia.dao.dao_fallas_reles import fallas_reles_dao
+from src.utils.paths import update_observar_key
 import config
-
-# --- Funciones de Layout ---
 
 def get_reles_micom_layout():
     """
-    Define el layout para la pestaña 'Reles MiCOM'.
-    Incluye un BooleanSwitch de dash_daq para controlar la observacion de reles,
-    un area de estado, y un contenedor para las tablas de fallas.
+    layout de la pestaña Reles MiCOM con switch de observacion y tabla de fallas
     """
     return html.Div(children=[
         html.H1("Estado Reles MiCOM", className='main-title'),
-        
+
         html.Div([
-            # Usamos daq.BooleanSwitch directamente con su propia etiqueta
             daq.BooleanSwitch(
                 id='reles-micom-observer-toggle',
                 label='Observar Reles MiCOM',
@@ -28,7 +22,6 @@ def get_reles_micom_layout():
                 on=False,
                 style={'margin-right': '10px'}
             ),
-            # El Div para el Output es mantenido, pero el callback retornara no_update
             html.Div(id='reles-micom-observer-status', className='hidden-element')
         ], className='reles-controls-container'),
 
@@ -38,7 +31,6 @@ def get_reles_micom_layout():
             className='reles-faults-grid-container'
         ),
 
-        # Componente dcc.Interval para refrescar los datos de las fallas
         dcc.Interval(
             id='reles-faults-interval',
             interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
@@ -46,55 +38,36 @@ def get_reles_micom_layout():
         )
     ])
 
-# --- Registro de Callbacks ---
-
 def register_reles_micom_callbacks(app):
     """
-    Registra los callbacks especificos para la pestaña 'Reles MiCOM'.
-    Incluye el callback para el switch de observacion y para la tabla de fallas.
+    registra callbacks de la pestaña Reles MiCOM
     """
     @app.callback(
         Output('reles-micom-observer-status', 'children'),
         Input('reles-micom-observer-toggle', 'on')
     )
     def update_observer_status(is_observing):
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.abspath(os.path.join(script_dir, '..'))
-        # Cambiamos la extension del archivo a .json
-        observar_file_path = os.path.join(project_root, 'observador', 'observar.json')
-        
-        relative_observar_file_path = os.path.relpath(observar_file_path, project_root)
-
-        # Leer el contenido actual del archivo
-        if os.path.exists(observar_file_path):
-            with open(observar_file_path, 'r') as f:
-                content = f.read()
-                if content:
-                    data = json.loads(content)
-                else:
-                    data = {}
-        else:
-            data = {}
-
-        # Actualizar solo la clave 'reles_consultar'
-        data['reles_consultar'] = is_observing
-        
-        # Escribir el objeto JSON completo de vuelta al archivo
-        with open(observar_file_path, 'w') as f:
-            json.dump(data, f, indent=4) # Usamos indent=4 para una mejor legibilidad del JSON
-
+        """
+        persiste bandera reles_consultar en observar.json
+        """
+        try:
+            update_observar_key("reles_consultar", bool(is_observing))
+        except Exception:
+            pass
         return no_update
 
     @app.callback(
         Output('reles-faults-container', 'children'),
         Input('reles-faults-interval', 'n_intervals')
     )
-    def update_reles_faults_display(n_intervals):
+    def update_reles_faults_display(_n_intervals):
         """
-        Actualiza la visualizacion de las ultimas fallas de los reles.
+        arma tarjetas con la ultima falla por rele activo
         """
+        from dash import html  # import local para evitar dependencias circulares
+
         fault_tables = []
-        
+
         active_reles = reles_dao.get_all_reles_with_descriptions()
 
         if not active_reles:
@@ -102,10 +75,10 @@ def register_reles_micom_callbacks(app):
 
         for modbus_id, description in active_reles.items():
             internal_rele_id = reles_dao.get_internal_id_by_modbus_id(modbus_id)
-            
+
             if internal_rele_id is not None:
                 latest_falla = fallas_reles_dao.get_latest_falla_for_rele(internal_rele_id)
-                
+
                 if latest_falla:
                     formatted_timestamp = latest_falla['timestamp']
                     try:
@@ -149,5 +122,5 @@ def register_reles_micom_callbacks(app):
 
         if not fault_tables:
             return html.P("No hay datos de fallas disponibles para mostrar o no hay reles configurados.", className="text-gray-600 mt-4")
-        
+
         return fault_tables

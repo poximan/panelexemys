@@ -5,8 +5,8 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from src.persistencia.dao_historicos import historicos_dao as dao
-from src.persistencia.dao_grd import grd_dao
+from src.persistencia.dao.dao_historicos import historicos_dao as dao
+from src.persistencia.dao.dao_grd import grd_dao
 
 BUTTON_CLASS_DEFAULT = 'button-default'
 BUTTON_CLASS_ACTIVE = 'button-active'

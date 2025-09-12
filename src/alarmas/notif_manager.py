@@ -1,13 +1,13 @@
 import datetime
 from typing import List
 from src.logger import Logosaurio
-from .notif_global import NotifGlobal
-from .notif_nodo import NotifNodo
-from .notif_modem import NotifModem
+from ..servicios.mqtt import mqtt_event_bus as bus
+from .categorias.notif_global import NotifGlobal
+from .categorias.notif_nodo import NotifNodo
+from .categorias.notif_modem import NotifModem
 from . import email_sender
-from src.persistencia.dao_mensajes_enviados import mensajes_enviados_dao
-from src.persistencia.dao_historicos import historicos_dao
-from src.observador import mqtt_event_bus as bus
+from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
+from src.persistencia.dao.dao_historicos import historicos_dao
 import config
 
 class NotifManager:

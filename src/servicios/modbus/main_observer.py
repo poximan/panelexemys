@@ -1,9 +1,9 @@
 import threading
 from src.logger import Logosaurio
-import config
 from .modbus_driver import ModbusTcpDriver
 from .server_mb_middleware import GrdMiddlewareClient
 from .server_mb_reles import ProtectionRelayClient
+import config
 
 def start_modbus_orchestrator(logger: Logosaurio):
     """

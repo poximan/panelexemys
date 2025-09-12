@@ -1,6 +1,6 @@
 import queue
 from typing import List, Tuple, Optional
-from src.observador.mqtt_driver import MqttDriver
+from .mqtt_driver import MqttDriver
 import config
 
 class MqttClientManager:

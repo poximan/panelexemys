@@ -1,10 +1,10 @@
 import time
 from datetime import datetime
-from src.persistencia.dao_historicos import historicos_dao as dao
-from src.persistencia.dao_grd import grd_dao
-from src.logger import Logosaurio
+from src.persistencia.dao.dao_historicos import historicos_dao as dao
+from src.persistencia.dao.dao_grd import grd_dao
 from .modbus_driver import ModbusTcpDriver
-from .mqtt_topic_publisher import MqttTopicPublisher
+from ..mqtt.mqtt_topic_publisher import MqttTopicPublisher
+from src.logger import Logosaurio
 import config
 
 class GrdMiddlewareClient:

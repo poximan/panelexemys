@@ -1,0 +1,9 @@
+{
+    "reles_consultar": false,
+    "ip200_estado": "conectado",
+    "server_email_estado": {
+        "smtp": "conectado",
+        "ping_local": "conectado",
+        "ping_remoto": "conectado"
+    }
+}

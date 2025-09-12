@@ -3,8 +3,8 @@ from dash import html
 from dash.dependencies import Input, Output
 import pandas as pd
 from datetime import datetime
-from src.persistencia.dao_historicos import historicos_dao as dao
-from src.persistencia.dao_grd import grd_dao
+from src.persistencia.dao.dao_historicos import historicos_dao as dao
+from src.persistencia.dao.dao_grd import grd_dao
 
 def get_main_data_table_layout():
     """

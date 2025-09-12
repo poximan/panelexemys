@@ -1,6 +1,6 @@
 import json
 from typing import Any, Optional
-from src.observador.mqtt_driver import MqttDriver
+from .mqtt_driver import MqttDriver
 import config
 
 class MqttTopicPublisher:
