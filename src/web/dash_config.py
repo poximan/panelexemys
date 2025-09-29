@@ -16,6 +16,7 @@ from src.web.broker.broker_view import get_broker_layout, register_broker_callba
 
 # Definir la clave de acceso para las paginas de administrador
 ADMIN_KEY = '12345'
+BASE = "/dash"
 
 def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue):
     """
@@ -39,18 +40,18 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
         dcc.Input(id='admin-key-input', type='password', placeholder='Clave de acceso', className='key-input'),
         html.Button('Acceder', id='submit-key-button', n_clicks=0, className='key-button'),
         html.Div(id='access-feedback', style={'textAlign': 'center', 'color': 'red', 'marginTop': '10px'})
-    ])
-
+    ])   
+    
     # --- Layout Principal de la Aplicacion (Shell de la SPA) ---
     app.layout = html.Div(className='main-app-container', children=[
         dcc.Location(id='url', refresh=False),
         dcc.Store(id='auth-status', data={'is_admin': False}),
         
-        html.Div(className='navbar', id='navbar-links-container', children=[
-            dcc.Link('Dashboard', href='/dash', className='nav-link'),
-            dcc.Link('Reles MiCOM', href='/reles', className='nav-link'),
-            dcc.Link('Mantenimiento', href='/mantenimiento', className='nav-link'),
-            dcc.Link('Broker', href='/broker', className='nav-link')
+        html.Div(className='navbar', id='navbar-links-container', children=[                        
+            dcc.Link('Dashboard', href=f'{BASE}', className='nav-link'),
+            dcc.Link('Reles MiCOM', href=f'{BASE}/reles', className='nav-link'),
+            dcc.Link('Mantenimiento', href=f'{BASE}/mantenimiento', className='nav-link'),
+            dcc.Link('Broker', href=f'{BASE}/broker', className='nav-link'),
         ]),
         html.Hr(className='navbar-separator'),
         
@@ -79,19 +80,26 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
     )
     def display_page(pathname, auth_data):
         is_admin = auth_data['is_admin']
-        
-        if pathname == '/reles':
+
+        if pathname == f"{BASE}/reles":
             return reles_micom_layout
-        elif pathname == '/mantenimiento':
+
+        elif pathname == f"{BASE}/mantenimiento":
             if not is_admin:
                 return access_prompt_layout
             return mantenimiento_layout
-        elif pathname == '/broker':
+
+        elif pathname == f"{BASE}/broker":
             if not is_admin:
                 return access_prompt_layout
             return broker_layout
-        else:
+
+        elif pathname == BASE or pathname == f"{BASE}/":
+            # dashboard principal
             return dashboard_layout
+
+        # fallback: ruta invalida
+        return html.Div("Ruta no encontrada", className="error-page")
 
     # Registrar TODOS los callbacks de cada panel/pagina en un solo lugar
     register_dashboard_callbacks(app)

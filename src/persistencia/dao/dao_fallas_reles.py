@@ -28,7 +28,7 @@ class FallasRelesDAO:
                 ''', (id_rele, numero_falla, timestamp,
                       fasea_corr, faseb_corr, fasec_corr, tierra_corr))
                 conn.commit()
-                print(f"Falla (Nº {numero_falla}) para Rele interno ID {id_rele} registrada en DB.")
+                print(f"Falla (Nro {numero_falla}) para Rele interno ID {id_rele} registrada en DB.")
             except sqlite3.Error as e:
                 print(f"ERROR al insertar falla de rele en la base de datos: {e}")
             finally:

@@ -7,6 +7,12 @@ from src.logger import Logosaurio
 from src.utils.paths import update_observar_key
 import config
 
+# parametros de backoff
+base_interval = 300  # segundos, comportamiento actual por defecto
+backoff = 30         # primer espera corta ante fallo
+backoff_max = 900    # maximo 15 min
+backoff_multiplier = 2
+
 class check_host:
     """
     fachada para ejecutar chequeos tcp sobre check-host.net
@@ -58,7 +64,18 @@ def start_api_monitor(logger: Logosaurio, host: str, port: int):
                 last_payload = payload
                 logger.log(f"Publicado estado de modem en {config.MQTT_TOPIC_MODEM_CONEXION}: {payload}", origen="TCP/API")
 
+            # estrategia de espera
+            if connection_ok:
+                # exito: resetea backoff y vuelve al intervalo base
+                backoff = 30
+                time.sleep(base_interval)
+            else:
+                # fallo: aplica backoff exponencial con tope
+                time.sleep(backoff)
+                backoff = min(backoff * backoff_multiplier, backoff_max)
+
         except Exception as e:
             logger.log(f"Error inesperado en el monitor TCP: {e}", origen="TCP/API")
-
-        time.sleep(300)
+            # en excepcion tambien aplica backoff
+            time.sleep(backoff)
+            backoff = min(backoff * backoff_multiplier, backoff_max)

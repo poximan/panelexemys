@@ -55,7 +55,10 @@ class ModbusTcpDriver:
         Cierra la conexion Modbus TCP.
         """
         if self._client and self._is_connected:
-            self._client.close()
+            try:
+                self._client.close()
+            except Exception:
+                pass
             self._is_connected = False
             self.logger.log(f"Desconectado de {self.host}:{self.port}", origen="OBS/DRV")
 
@@ -66,16 +69,17 @@ class ModbusTcpDriver:
         Args:
             address_offset (int): La direccion de inicio del registro (offset 0 para 30001).
             count (int): La cantidad de registros a leer.
-            unit_id (int): El Unit ID (Slave ID) del esclavo al que consultar.
+            unit_id (int): El Unit ID del esclavo al que consultar.
 
         Returns:
-            list[int]: Lista de valores de los registros si la lectura fue exitosa, o None en caso de error.
+            list[int] | None: Lista de valores si la lectura fue exitosa, o None en caso de error.
         """
         if not self._is_connected and not self.connect():
             self.logger.log(f"Fallo al conectar para leer registros de entrada (Unit ID {unit_id})", origen="OBS/DRV")
             return None
 
         try:
+            # IMPORTANTE: usar unit= (pymodbus 3.x) en lugar de slave=
             result = self._client.read_input_registers(address_offset, count=count, slave=unit_id)
 
             if result is None:
@@ -92,7 +96,7 @@ class ModbusTcpDriver:
                 )
                 return None
             
-            elif result.registers:
+            elif getattr(result, 'registers', None):
                 return result.registers
             else:
                 self.logger.log(
@@ -117,6 +121,7 @@ class ModbusTcpDriver:
             return None
 
         try:
+            # unit= en lugar de slave=
             result = self._client.read_holding_registers(address_offset, count=count, slave=unit_id)
             if result is None or (hasattr(result, 'isError') and result.isError()):
                 self.logger.log(
@@ -124,7 +129,7 @@ class ModbusTcpDriver:
                     origen="OBS/DRV"
                 )
                 return None
-            return result.registers
+            return getattr(result, 'registers', None)
         except Exception as e:
             self.logger.log(
                 f"Excepcion en lectura de holding registers para Unit ID {unit_id}, Addr {address_offset}: {e}",
@@ -142,6 +147,7 @@ class ModbusTcpDriver:
             return False
 
         try:
+            # unit= en lugar de slave=
             result = self._client.write_register(address_offset, value, slave=unit_id)
             if result is None or (hasattr(result, 'isError') and result.isError()):
                 self.logger.log(

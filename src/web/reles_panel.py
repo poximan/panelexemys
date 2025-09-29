@@ -4,13 +4,17 @@ import dash_daq as daq
 from datetime import datetime
 from src.persistencia.dao.dao_reles import reles_dao
 from src.persistencia.dao.dao_fallas_reles import fallas_reles_dao
-from src.utils.paths import update_observar_key
+from src.utils.paths import update_observar_key, load_observar_key
+
 import config
 
 def get_reles_micom_layout():
     """
     layout de la pestaña Reles MiCOM con switch de observacion y tabla de fallas
     """
+
+    initial_on = bool(load_observar_key("reles_consultar", False))
+
     return html.Div(children=[
         html.H1("Estado Reles MiCOM", className='main-title'),
 
@@ -19,7 +23,7 @@ def get_reles_micom_layout():
                 id='reles-micom-observer-toggle',
                 label='Observar Reles MiCOM',
                 labelPosition='right',
-                on=False,
+                on=initial_on,
                 style={'margin-right': '10px'}
             ),
             html.Div(id='reles-micom-observer-status', className='hidden-element')

@@ -1,9 +1,9 @@
 import time
-import smtplib
-import socket
 import subprocess
 import platform
-from typing import Literal, Dict
+from typing import Literal, Dict, Optional
+
+import requests
 
 from src.utils.paths import update_observar_key
 from src.logger import Logosaurio
@@ -12,49 +12,46 @@ import config
 Estado = Literal["conectado", "desconectado", "desconocido"]
 
 
-def _smtp_noop_check(logger: Logosaurio) -> Estado:
+def _mensagelo_smtp_check(logger: Logosaurio) -> Estado:
     """
-    Ejecuta una verificacion SMTP: EHLO, STARTTLS si corresponde, login si hay credenciales y NOOP.
-    Retorna el estado estandarizado.
-    """
-    host = getattr(config, "SMTP_SERVER", None)
-    port = int(getattr(config, "SMTP_PORT", 587))
-    username = getattr(config, "SMTP_USERNAME", None)
-    password = getattr(config, "SMTP_PASSWORD", None)
-    use_tls = bool(getattr(config, "SMTP_USE_TLS", True))
-    timeout = int(getattr(config, "SMTP_TIMEOUT_SECONDS", 30))
+    Consulta a mensagelo el endpoint /smtppostserv para validar el SMTP real
+    (por ejemplo post.servicoop.com) sin hacer NOOP directo desde este proceso.
 
-    if not host or not port:
+    Respuestas:
+      - "conectado" si status=http200 y body.status=="ok"
+      - "desconectado" si status no 200 o body.status!="ok"
+      - "desconocido" si faltan parametros de config
+    """
+    base_url: Optional[str] = getattr(config, "MENSAGELO_BASE_URL", None)
+    api_key: Optional[str] = getattr(config, "MENSAGELO_API_KEY", None)
+    timeout: int = int(getattr(config, "MENSAGELO_TIMEOUT_SECONDS", 5))
+
+    if not base_url or not api_key:
         return "desconocido"
 
+    url = f"{base_url.rstrip('/')}/smtppostserv"
+    headers = {"X-API-Key": api_key}
+
     try:
-        if use_tls:
-            client = smtplib.SMTP(host, port, timeout=timeout)
-            client.ehlo()
-            client.starttls()
-            client.ehlo()
+        resp = requests.get(url, headers=headers, timeout=timeout)
+        if resp.status_code == 200:
+            try:
+                data = resp.json() or {}
+            except Exception:
+                data = {}
+            return "conectado" if str(data.get("status", "")).lower() == "ok" else "desconectado"
         else:
-            client = smtplib.SMTP_SSL(host, port, timeout=timeout)
-
-        if username:
-            client.login(username, password or "")
-
-        code, _ = client.noop()
+            # servicio responde pero indica problema
+            return "desconectado"
+    except requests.Timeout:
         try:
-            client.quit()
-        except Exception:
-            pass
-
-        return "conectado" if 200 <= code < 400 else "desconectado"
-    except (smtplib.SMTPException, OSError, socket.error) as e:
-        try:
-            logger.log(f"SMTP NOOP error: {e}", origen="EMAIL/CHK")
+            logger.log("mensagelo /smtppostserv timeout", origen="EMAIL/CHK")
         except Exception:
             pass
         return "desconectado"
     except Exception as e:
         try:
-            logger.log(f"SMTP NOOP excepcion: {e}", origen="EMAIL/CHK")
+            logger.log(f"mensagelo /smtppostserv excepcion: {e}", origen="EMAIL/CHK")
         except Exception:
             pass
         return "desconocido"
@@ -70,10 +67,8 @@ def _ping_host(host: str, logger: Logosaurio) -> Estado:
 
     system = platform.system().lower()
     if "windows" in system:
-        # -n 1: un eco, -w 2000: timeout 2000 ms por eco
         cmd = ["ping", "-n", "1", "-w", "2000", host]
     else:
-        # -c 1: un eco, -W 2: timeout 2 s por eco
         cmd = ["ping", "-c", "1", "-W", "2", host]
 
     try:
@@ -82,7 +77,7 @@ def _ping_host(host: str, logger: Logosaurio) -> Estado:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=False,
-            timeout=5,  # corta bloqueos del proceso ping o de resolucion
+            timeout=5,
         )
         return "conectado" if res.returncode == 0 else "desconectado"
     except subprocess.TimeoutExpired:
@@ -102,10 +97,13 @@ def _ping_host(host: str, logger: Logosaurio) -> Estado:
 def _build_status(logger: Logosaurio) -> Dict[str, Estado]:
     """
     Calcula los tres estados y retorna el diccionario a persistir.
+    smtp: estado del SMTP verificado via mensagelo /smtppostserv
+    ping_local: ping a dominio local
+    ping_remoto: ping al host SMTP (post.servicoop.com)
     """
-    estado_smtp = _smtp_noop_check(logger)
-    estado_ping_local = _ping_host("servicoop.com", logger)
-    estado_ping_remoto = _ping_host("mail.servicoop.com", logger)
+    estado_smtp = _mensagelo_smtp_check(logger)
+    estado_ping_local = _ping_host("servicoop.com.ar", logger)
+    estado_ping_remoto = _ping_host("post.servicoop.com", logger)
 
     return {
         "smtp": estado_smtp,
@@ -133,5 +131,4 @@ def start_email_health_monitor(logger: Logosaurio) -> None:
             except Exception:
                 pass
         finally:
-            # garantiza el periodo aunque haya fallos en la iteracion
             time.sleep(300)

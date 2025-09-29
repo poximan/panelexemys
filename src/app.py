@@ -13,7 +13,6 @@ import src.persistencia.sim_poblar as poblador
 
 from src.servicios.modbus.main_observer import start_modbus_orchestrator
 from src.servicios.tcp.tcp_api import start_api_monitor
-from src.alarmas.alarm_notifier import AlarmNotifier
 from src.servicios.mqtt.mqtt_client_manager import MqttClientManager
 
 from src.servicios.mqtt import mqtt_event_bus
@@ -30,8 +29,12 @@ logger_app = Logosaurio()
 ddl.create_database_schema()
 
 # servidor dash
-app = dash.Dash(__name__, assets_folder='assets')
-app.config['suppress_callback_exceptions'] = True
+app = dash.Dash(
+    __name__,
+    routes_pathname_prefix="/dash/",
+    requests_pathname_prefix="/dash/",
+    suppress_callback_exceptions=True,  # opcional pero util en apps multipagina
+)
 server = app.server
 
 @server.before_request
@@ -87,21 +90,16 @@ if __name__ == '__main__':
         logger_app.log("5º: Lanzando monitor TCP (modem)...", origen="APP")
         threading.Thread(target=start_api_monitor, args=(logger_app, "200.63.163.36", 40000,), daemon=True).start()
 
-        # notificador de alarmas
-        logger_app.log("6º: Lanzando notificador de alarmas...", origen="APP")
-        alarm_notifier_instance = AlarmNotifier(logger=logger_app)
-        threading.Thread(target=alarm_notifier_instance.start_observer_loop, daemon=True).start()
-
         # cliente mqtt
-        logger_app.log("7º: Lanzando cliente MQTT...", origen="APP")
+        logger_app.log("6º: Lanzando cliente MQTT...", origen="APP")
         threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
 
         # router rpc mqtt (escucha app/req/#)
-        logger_app.log("8º: Iniciando RPC sobre MQTT...", origen="APP")
+        logger_app.log("7º: Iniciando RPC sobre MQTT...", origen="APP")
         threading.Thread(target=rpc_router.start, daemon=True).start()
 
         # monitor smtp (actualiza observar.json -> server_email_estado)
-        logger_app.log("9º: Lanzando monitor servidor email (SMTP NOOP)...", origen="APP")
+        logger_app.log("8º: Lanzando monitor servidor email (SMTP NOOP)...", origen="APP")
         threading.Thread(target=start_email_health_monitor, args=(logger_app,), daemon=True).start()
 
     else:

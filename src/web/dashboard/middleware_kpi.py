@@ -84,8 +84,8 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                     'borderwidth': 2,
                     'bordercolor': "gray",
                     'steps': [
-                        {'range': [0, config.GLOBAL_THRESHOLD_ROJO - 1], 'color': '#f8d7da'},
-                        {'range': [config.GLOBAL_THRESHOLD_ROJO, config.GLOBAL_THRESHOLD_AMARILLO - 1], 'color': '#fff3cd'},
+                        {'range': [0, config.GLOBAL_THRESHOLD_ROJO], 'color': '#f8d7da'},
+                        {'range': [config.GLOBAL_THRESHOLD_ROJO, config.GLOBAL_THRESHOLD_AMARILLO], 'color': '#fff3cd'},
                         {'range': [config.GLOBAL_THRESHOLD_AMARILLO, 100], 'color': '#d4edda'}
                     ],
                     'threshold': {
@@ -113,7 +113,10 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
 
         disconnected_table_rows = []
         if disconnected_grds_data:
+            
             current_time = datetime.now() # Get current time once for efficiency
+            grds_map = grd_dao.get_all_grds_with_descriptions()
+
             for item in disconnected_grds_data:
                 timestamp_obj = item.get('last_disconnected_timestamp')
                 timestamp_str = 'N/A'
@@ -135,7 +138,7 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                     else:
                         time_disconnected_minutes = f"{minutes}m"
 
-                grd_description = grd_dao.get_grd_description(item['id_grd'])
+                grd_description = grds_map.get(item['id_grd'])
                 display_name = f"GRD {item['id_grd']} ({grd_description})" if grd_description else f"GRD {item['id_grd']}"
 
                 disconnected_table_rows.append(

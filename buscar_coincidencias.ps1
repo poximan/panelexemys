@@ -5,12 +5,12 @@ param (
 # Si no se pasó parámetro, mostrar ayuda y salir
 if (-not $Clave) {
     Write-Host ""
-    Write-Host "Uso: .\buscar_clave.ps1 <palabra_clave>"
+    Write-Host "Uso: .\buscar_coincidencias.ps1 <palabra_clave>"
     Write-Host "Busca dentro de todos los archivos .py y de forma recursva"
     Write-Host "Desde la carpeta actual. Excluye __pycache__ y venv."
     Write-Host ""
     Write-Host "Ejemplo:"
-    Write-Host "    .\buscar_clave.ps1 requests"
+    Write-Host "    .\buscar_coincidencias.ps1 requests"
     Write-Host ""
     exit
 }

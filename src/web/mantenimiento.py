@@ -1,9 +1,10 @@
+# src/web/mantenimiento.py
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import time
-from src.alarmas import email_sender
 from src.utils.paths import load_observar
+from ..servicios.email.mensagelo_client import MensageloClient
 import config
 
 # Definicion del layout para la pagina de Mantenimiento
@@ -22,9 +23,9 @@ def get_mantenimiento_layout():
                 className='data-table',
                 children=[
                     html.Thead(html.Tr([
-                        html.Th("SMTP (post.servicoop.com)", className="table-header-cell"),
-                        html.Th("Ping local (servicoop.com.ar)", className="table-header-cell"),
-                        html.Th("Ping remoto (email.servicoop.com)", className="table-header-cell"),
+                        html.Th("SMTP en host LAN (post.servicoop.com)", className="table-header-cell"),
+                        html.Th("Ping IPPUB gw local (servicoop.com.ar)", className="table-header-cell"),
+                        html.Th("Ping IPPUB serv remoto (mail.servicoop.com)", className="table-header-cell"),
                     ])),
                     html.Tbody([
                         html.Tr([
@@ -44,7 +45,7 @@ def get_mantenimiento_layout():
 
         html.Div(className='button-container', children=[
             html.Button(
-                'Probar Email',
+                'Probar Email (async)',
                 id='btn-probar-email',
                 n_clicks=0,
                 className='button-primary'
@@ -59,7 +60,7 @@ def get_mantenimiento_layout():
                     className='magnifier-container',
                     children=[
                         html.Img(
-                            src='/assets/topologia.png',
+                            src='./assets/topologia.png',
                             alt='Diagrama de Topologia de la Aplicacion',
                             className='magnifier-image'
                         ),
@@ -88,27 +89,35 @@ def register_mantenimiento_callbacks(app: dash.Dash):
     def handle_probar_email(n_clicks):
         if n_clicks > 0:
             test_recipient = config.ALARM_EMAIL_RECIPIENT
-            test_subject = "Email de Prueba desde Panel de Mantenimiento"
+            test_subject = "Email de Prueba"
             test_body = (
-                f"Este es un email de prueba enviado desde el Panel de Mantenimiento "
-                f"de la aplicacion Middleware Exemys Dash. Fecha y Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                f"Este es un email de prueba enviado desde panelexemys. "
+                f"Fecha y Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
-            sent_successfully = email_sender.send_alarm_email(
-                recipients=test_recipient,
-                subject=test_subject,
-                body=test_body
-            )
+            # Encolar via mensagelo (asincronico). No esperamos entrega SMTP.
+            try:
+                client = MensageloClient()
+                ok, msg = client.enqueue_email(
+                    recipients=test_recipient,
+                    subject=f"{config.ALARM_EMAIL_SUBJECT_PREFIX}{test_subject}",
+                    body=test_body,
+                    message_type="maintenance_test"
+                )
+            except Exception as e:
+                ok, msg = False, f"error al contactar mensagelo: {e}"
 
-            if sent_successfully:
+            if ok:
                 return html.Div([
-                    html.P("Email de prueba enviado con exito.", className='info-message', style={'color': 'green'}),
-                    html.P(f"Enviado a: {test_recipient}", style={'fontSize': '14px'})
+                    html.P("Pedido aceptado por mensagelo (cola async).", className='info-message', style={'color': 'green'}),
+                    html.P(f"Destinatarios: {test_recipient}", style={'fontSize': '14px'}),
+                    html.P(f"Detalle: {msg}", style={'fontSize': '12px', 'color': '#333'})
                 ])
             else:
                 return html.Div([
-                    html.P("Error al enviar el email de prueba. Revisar logs para mas detalles.", className='info-message', style={'color': 'red'}),
-                    html.P(f"Intento de envio a: {test_recipient}", style={'fontSize': '14px'})
+                    html.P("No se pudo encolar el email de prueba.", className='info-message', style={'color': 'red'}),
+                    html.P(f"Destinatarios: {test_recipient}", style={'fontSize': '14px'}),
+                    html.P(f"Detalle: {msg}", style={'fontSize': '12px', 'color': '#333'})
                 ])
         return ""
 

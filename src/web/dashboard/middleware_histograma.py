@@ -56,8 +56,7 @@ def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
             # Grafico principal del estado 'conectado'
             dcc.Graph(
                 id='connected-wave-graph',
-                className='connected-graph-container',
-                config={'displayModeBar': True}
+                className='connected-graph-container',                
             ),
         ]),
     ])
@@ -369,8 +368,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
             ),
             height=300,
             plot_bgcolor='#f8f9fa', paper_bgcolor='#ffffff',
-            margin=dict(l=40, r=40, t=80, b=40), font=dict(family="Inter", size=12, color="#333"),
-            modebar_add=["zoom", "pan", "resetscale"]
+            margin=dict(l=40, r=40, t=80, b=40), font=dict(family="Inter", size=12, color="#333"),            
         )
 
         # Aqui siempre devolvemos un mensaje vacio para el div de advertencia
