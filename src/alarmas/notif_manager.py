@@ -5,9 +5,11 @@ from ..servicios.mqtt import mqtt_event_bus as bus
 from .categorias.notif_global import NotifGlobal
 from .categorias.notif_nodo import NotifNodo
 from .categorias.notif_modem import NotifModem
+from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
 from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
 from src.persistencia.dao.dao_historicos import historicos_dao
 from src.servicios.email.mensagelo_client import MensageloClient
+from src.utils.paths import load_observar_key
 import config
 
 class NotifManager:
@@ -23,6 +25,8 @@ class NotifManager:
         self.global_notifier = NotifGlobal(logger)
         self.nodo_notifier = NotifNodo(logger, excluded_grd_ids)
         self.modem_notifier = NotifModem(logger)
+        self.proxmox_host_notifier = NotifProxmoxHost(logger)
+        self.proxmox_vm_notifier = NotifProxmoxVm(logger)
         self.mail_client = MensageloClient()
 
     def run_alarm_processing(self):
@@ -33,6 +37,8 @@ class NotifManager:
 
         disconnected = historicos_dao.get_all_disconnected_grds()
         self._process_alarms(connection_percentage, disconnected)
+        proxmox_snapshot = load_observar_key("proxmox_estado", {})
+        self._process_proxmox_alarms(proxmox_snapshot)
 
     def _process_alarms(self, current_percentage: float, disconnected_grds: list):
         if self.global_notifier.evaluate_condition(current_percentage):
@@ -60,6 +66,29 @@ class NotifManager:
             body = (
                 f"El modem del ruteo ha estado desconectado por mas de "
                 f"{config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."
+            )
+            self._send_notification_and_log(subject, body, config.ALARM_EMAIL_RECIPIENT)
+
+    def _process_proxmox_alarms(self, snapshot):
+        if not isinstance(snapshot, dict):
+            snapshot = {}
+
+        if self.proxmox_host_notifier.evaluate_condition(snapshot):
+            detail = self.proxmox_host_notifier.get_last_error() or ""
+            body_lines = [
+                f"El hipervisor Proxmox no responde desde hace al menos {config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."
+            ]
+            if detail:
+                body_lines.append(f"Detalle detectado: {detail}")
+            subject = "Hipervisor Proxmox no responde"
+            self._send_notification_and_log(subject, "\n".join(body_lines), config.ALARM_EMAIL_RECIPIENT)
+
+        vm_alerts = self.proxmox_vm_notifier.evaluate_condition(snapshot)
+        for vm in vm_alerts:
+            subject = f"VM {vm['name']} detenida en Proxmox"
+            body = (
+                f"La VM {vm['name']} (ID {vm['vmid']}) presenta estado '{vm['status_display']}' "
+                f"desde hace al menos {config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."
             )
             self._send_notification_and_log(subject, body, config.ALARM_EMAIL_RECIPIENT)
 

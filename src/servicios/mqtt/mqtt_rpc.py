@@ -5,7 +5,8 @@ RPC minimalista sobre MQTT.
 """
 
 import json
-from typing import Optional
+import queue
+from typing import Optional, Tuple
 from datetime import datetime
 from src.persistencia.dao.dao_historicos import historicos_dao
 from src.logger import Logosaurio
@@ -18,10 +19,12 @@ class MqttRequestRouter:
     """
     enrutador simple de requests rpc sobre mqtt basado en topicos
     """
-    def __init__(self, logger: Logosaurio, mqtt_manager, message_queue):
+    def __init__(self, logger: Logosaurio, mqtt_manager, message_queue=None):
         self.log = logger
         self.manager = mqtt_manager
-        self.queue = message_queue
+        self.queue = message_queue  # mantenido por compatibilidad (no se consume)
+        self._listener_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
+        self._listener = None
         self._origen = "OBS/RPC"
 
     def start(self):
@@ -29,15 +32,15 @@ class MqttRequestRouter:
         inicia suscripcion a requests y procesa mensajes entrantes
         """
         self.manager.subscribe(f"{REQ_PREFIX}/#", qos=1)
+        if self._listener is None:
+            def _enqueue(topic: str, payload: str) -> None:
+                self._listener_queue.put((topic, payload))
+            self._listener = _enqueue
+            self.manager.register_prefix_listener(f"{REQ_PREFIX}/", self._listener)
         self.log.log(f"RPC MQTT: suscripto a {REQ_PREFIX}/#", origen=self._origen)
 
         while True:
-            item = self.queue.get()
-            if not item:
-                continue
-            topic, payload = item
-            if not topic.startswith(f"{REQ_PREFIX}/"):
-                continue
+            topic, payload = self._listener_queue.get()
 
             action = topic[len(REQ_PREFIX) + 1:]
 

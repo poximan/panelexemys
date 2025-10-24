@@ -20,6 +20,8 @@ RUN useradd -m -u 10001 appuser
 COPY src /app/src
 COPY config.py /app/config.py
 
+RUN chown -R appuser:appuser /app
+
 USER appuser
 
 EXPOSE 8052

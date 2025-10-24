@@ -1,7 +1,10 @@
-# Event bus publish-only limitado a los 3 topicos del cliente movil.
-# - estado/exemys   (retain): cambios por GRD y resumen global
-# - estado/sensor   (retain): estado del "modem" (red)
-# - estado/email    (no-retain): eventos de envio/alerta de email
+# Event bus publish-only limitado a los topicos consumidos por el cliente movil.
+# - exemys/estado/grado          (retain): resumen global
+# - exemys/estado/grds           (retain): detalle de desconectados
+# - exemys/estado/conexion_modem (retain): estado del modem
+# - exemys/estado/email          (retain): salud del servidor de correo
+# - exemys/estado/proxmox      (retain): snapshot de Proxmox
+# - exemys/eventos/email         (no retain): eventos individuales de envio
 
 import json
 from typing import Any
@@ -30,7 +33,7 @@ def publish_exemys_grd_change(grd_id: int, value: int, ts: str) -> None:
     """
     obj = {"type": "grd_state", "id": int(grd_id), "value": int(value), "ts": ts}
     _safe_publish(
-        config.MQTT_ESTADO_EXEMYS,
+        config.MQTT_TOPIC_GRDS,
         json.dumps(obj, ensure_ascii=False),
         qos=config.MQTT_PUBLISH_QOS_STATE,
         retain=config.MQTT_PUBLISH_RETAIN_STATE,
@@ -43,7 +46,7 @@ def publish_exemys_global_summary(porcentaje: float, total: int, conectados: int
     """
     obj = {"type": "global", "porcentaje": round(float(porcentaje), 2), "total": int(total), "conectados": int(conectados)}
     _safe_publish(
-        config.MQTT_ESTADO_EXEMYS,
+        config.MQTT_TOPIC_GRADO,
         json.dumps(obj, ensure_ascii=False),
         qos=config.MQTT_PUBLISH_QOS_STATE,
         retain=config.MQTT_PUBLISH_RETAIN_STATE,
@@ -56,8 +59,32 @@ def publish_sensor_modem_state(estado: str) -> None:
     """
     obj = {"type": "modem", "estado": str(estado)}
     _safe_publish(
-        config.MQTT_TOPIC_SENSOR,
+        config.MQTT_TOPIC_MODEM_CONEXION,
         json.dumps(obj, ensure_ascii=False),
+        qos=config.MQTT_PUBLISH_QOS_STATE,
+        retain=config.MQTT_PUBLISH_RETAIN_STATE,
+    )
+
+def publish_email_state(payload: dict) -> None:
+    """
+    Publica el estado agregado del servidor de correo (retain).
+    payload: {"smtp":"conectado","ping_local":"conectado","ping_remoto":"desconectado","ts":"..."}
+    """
+    _safe_publish(
+        config.MQTT_TOPIC_EMAIL_ESTADO,
+        json.dumps(payload, ensure_ascii=False),
+        qos=config.MQTT_PUBLISH_QOS_STATE,
+        retain=config.MQTT_PUBLISH_RETAIN_STATE,
+    )
+
+def publish_proxmox_state(payload: dict) -> None:
+    """
+    Publica el snapshot de estado de Proxmox (retain).
+    payload: {"ts":"...","status":"online|offline","node":"...","vms":[...],"missing":[...],"error":str|None}
+    """
+    _safe_publish(
+        getattr(config, "MQTT_TOPIC_PROXMOX_ESTADO", "exemys/estado/proxmox"),
+        json.dumps(payload, ensure_ascii=False),
         qos=config.MQTT_PUBLISH_QOS_STATE,
         retain=config.MQTT_PUBLISH_RETAIN_STATE,
     )
@@ -71,7 +98,7 @@ def publish_email_event(subject: str, ok: bool) -> None:
     """
     obj = {"type": "email", "subject": subject, "ok": bool(ok)}
     _safe_publish(
-        config.MQTT_ESTADO_EMAIL,
+        config.MQTT_TOPIC_EMAIL_EVENT,
         json.dumps(obj, ensure_ascii=False),
         qos=config.MQTT_PUBLISH_QOS_EVENT,
         retain=config.MQTT_PUBLISH_RETAIN_EVENT,

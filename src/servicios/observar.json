@@ -5,5 +5,27 @@
         "smtp": "conectado",
         "ping_local": "conectado",
         "ping_remoto": "conectado"
+    },
+    "proxmox_estado": {
+        "ts": "2025-10-23T08:56:00.872028",
+        "vms": [
+            {
+                "vmid": 101,
+                "name": "Ubuntu-esxi",
+                "status": "stopped",
+                "cpus": 2,
+                "cpu_usage_pct": 0.0,
+                "mem_used_gb": 0.0,
+                "mem_total_gb": 6.0,
+                "uptime_seconds": 0,
+                "uptime_human": "0m",
+                "disk_used_gb": 0.0,
+                "disk_total_gb": 100.0,
+                "disk_usage_pct": 0.0,
+                "status_detail_error": null
+            }
+        ],
+        "missing": [],
+        "error": null
     }
 }

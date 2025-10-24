@@ -1,12 +1,14 @@
 import time
 import subprocess
 import platform
-from typing import Literal, Dict, Optional
+from datetime import datetime
+from typing import Literal, Dict, Optional, Any
 
 import requests
 
 from src.utils.paths import update_observar_key
 from src.logger import Logosaurio
+from ..mqtt.mqtt_topic_publisher import MqttTopicPublisher
 import config
 
 Estado = Literal["conectado", "desconectado", "desconocido"]
@@ -112,17 +114,32 @@ def _build_status(logger: Logosaurio) -> Dict[str, Estado]:
     }
 
 
-def start_email_health_monitor(logger: Logosaurio) -> None:
+def start_email_health_monitor(logger: Logosaurio, mqtt_manager) -> None:
     """
     Bucle de monitoreo cada 300 s. Actualiza observar.json -> server_email_estado
     con subclaves smtp, ping_local y ping_remoto.
     """
+    publisher = MqttTopicPublisher(logger=logger, manager=mqtt_manager)
+    last_payload: Optional[Dict[str, Any]] = None
+
     while True:
         try:
             estados = _build_status(logger)
             update_observar_key("server_email_estado", estados)
+            enriched_payload = {
+                **estados,
+                "ts": datetime.now().isoformat(timespec="seconds"),
+            }
+            if enriched_payload != last_payload:
+                publisher.publish_json(
+                    config.MQTT_TOPIC_EMAIL_ESTADO,
+                    enriched_payload,
+                    qos=config.MQTT_PUBLISH_QOS_STATE,
+                    retain=config.MQTT_PUBLISH_RETAIN_STATE,
+                )
+                last_payload = enriched_payload
             try:
-                logger.log(f"server_email_estado: {estados}", origen="EMAIL/CHK")
+                logger.log(f"server_email_estado: {enriched_payload}", origen="EMAIL/CHK")
             except Exception:
                 pass
         except Exception as e:

@@ -3,6 +3,7 @@ import os
 import datetime
 from typing import Dict, Any
 from src.logger import Logosaurio
+from src.utils.paths import get_observar_path
 import config
 
 class NotifModem:
@@ -13,12 +14,7 @@ class NotifModem:
             'triggered': False,
             'description': "Alarma de ruteo de modem"
         }
-        
-        # Corregir la ruta del archivo
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-                
-        src_dir = os.path.dirname(script_dir)
-        self.observar_file_path = os.path.join(src_dir, 'observador', 'observar.json')
+        self.observar_file_path = get_observar_path()
     
     def evaluate_condition(self) -> bool:
         """

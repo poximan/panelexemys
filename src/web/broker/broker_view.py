@@ -6,6 +6,8 @@ from dash.dependencies import Input, Output, State
 from queue import Queue, Empty
 import json
 import config
+import dash_daq as daq
+from src.utils.paths import load_observar_key, update_observar_key
 
 message_queue: Queue | None = None
 mqtt_client_manager = None
@@ -17,9 +19,28 @@ STATUS_FILE = os.path.join(SCRIPT_DIR, 'estado_broker.txt')  # reservado si quer
 def get_broker_layout():
     status_interval_ms = getattr(config, 'BROKER_STATUS_REFRESH_INTERVAL_MS', 3000)
     dash_interval_ms = getattr(config, 'DASHBOARD_REFRESH_INTERVAL_MS', 5000)
+    initial_toggle = bool(load_observar_key("broker_conectar", True))
+    if initial_toggle:
+        try:
+            _ensure_connected()
+        except Exception:
+            pass
 
     return html.Div(children=[
         html.H1("Broker MQTT", className='main-title'),
+        html.Div(
+            className="broker-toggle-container",
+            children=[
+                daq.BooleanSwitch(
+                    id='broker-connection-toggle',
+                    label='Conectar al broker',
+                    labelPosition='right',
+                    on=initial_toggle,
+                    style={'marginRight': '12px'}
+                ),
+                html.Div(id='broker-toggle-status', className='hidden-element')
+            ]
+        ),
 
         html.Div(className="status-indicator-wrapper", children=[
             html.Span("Estado de la conexión:"),
@@ -122,6 +143,14 @@ def initialize_broker_components(manager, queue):
                 mqtt_client_manager.set_message_queue(message_queue)
             elif hasattr(mqtt_client_manager, 'msg_queue'):
                 mqtt_client_manager.msg_queue = message_queue
+            desired = bool(load_observar_key("broker_conectar", True))
+            if desired:
+                threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
+            else:
+                try:
+                    mqtt_client_manager.stop()
+                except Exception:
+                    pass
     except Exception:
         pass
 
@@ -129,6 +158,9 @@ def initialize_broker_components(manager, queue):
 def _ensure_connected():
     """Si no está conectado, dispara reconnect en un thread para no bloquear Dash."""
     if mqtt_client_manager is None:
+        return False
+    desired = bool(load_observar_key("broker_conectar", True))
+    if not desired:
         return False
     try:
         status = mqtt_client_manager.get_connection_status()
@@ -141,6 +173,30 @@ def _ensure_connected():
 
 
 def register_broker_callbacks(app: dash.Dash):
+
+    @app.callback(
+        Output('broker-toggle-status', 'children'),
+        Input('broker-connection-toggle', 'on'),
+        prevent_initial_call=False
+    )
+    def handle_broker_toggle(is_enabled: bool):
+        try:
+            update_observar_key("broker_conectar", bool(is_enabled))
+        except Exception:
+            pass
+
+        if mqtt_client_manager is None:
+            return dash.no_update
+
+        if is_enabled:
+            threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
+        else:
+            try:
+                mqtt_client_manager.stop()
+            except Exception:
+                pass
+
+        return dash.no_update
 
     @app.callback(
         Output('output-publish-status', 'children'),
@@ -163,6 +219,9 @@ def register_broker_callbacks(app: dash.Dash):
 
         if mqtt_client_manager is None:
             return "NO_MQTT_MANAGER"
+
+        if not bool(load_observar_key("broker_conectar", True)):
+            return "BROKER_DISABLED"
 
         # reconexión no bloqueante si hace falta
         connected = _ensure_connected()
@@ -241,15 +300,22 @@ def register_broker_callbacks(app: dash.Dash):
 
     @app.callback(
         Output('broker-status-indicator', 'className'),
-        [Input('broker-status-interval', 'n_intervals')]
+        Input('broker-status-interval', 'n_intervals'),
+        Input('broker-connection-toggle', 'on'),
     )
-    def update_broker_status(_n):
+    def update_broker_status(_n, toggle_on):
+        if not toggle_on:
+            return 'status-circle status-disconnected'
+
         status = "desconectado"
         if mqtt_client_manager is not None:
             try:
                 status = mqtt_client_manager.get_connection_status()
             except Exception:
                 status = 'desconectado'
+
+        if status == 'desconectado':
+            _ensure_connected()
 
         if status == 'conectado':
             return 'status-circle status-connected'

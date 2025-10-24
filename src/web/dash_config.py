@@ -13,6 +13,7 @@ from src.web.dashboard.middleware_tabla import register_main_data_table_callback
 from src.web.reles_panel import get_reles_micom_layout, register_reles_micom_callbacks
 from src.web.mantenimiento import get_mantenimiento_layout, register_mantenimiento_callbacks
 from src.web.broker.broker_view import get_broker_layout, register_broker_callbacks, initialize_broker_components
+from src.web.proxmox import get_proxmox_layout, register_proxmox_callbacks
 
 # Definir la clave de acceso para las paginas de administrador
 ADMIN_KEY = '12345'
@@ -33,6 +34,7 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
     reles_micom_layout = get_reles_micom_layout()
     mantenimiento_layout = get_mantenimiento_layout()
     broker_layout = get_broker_layout()
+    proxmox_layout = get_proxmox_layout()
 
     # Layout para el acceso con clave
     access_prompt_layout = html.Div(id='access-prompt-container', className='access-prompt', children=[
@@ -52,6 +54,7 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
             dcc.Link('Reles MiCOM', href=f'{BASE}/reles', className='nav-link'),
             dcc.Link('Mantenimiento', href=f'{BASE}/mantenimiento', className='nav-link'),
             dcc.Link('Broker', href=f'{BASE}/broker', className='nav-link'),
+            dcc.Link('Proxmox', href=f'{BASE}/proxmox', className='nav-link'),
         ]),
         html.Hr(className='navbar-separator'),
         
@@ -94,6 +97,9 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
                 return access_prompt_layout
             return broker_layout
 
+        elif pathname == f"{BASE}/proxmox":
+            return proxmox_layout
+
         elif pathname == BASE or pathname == f"{BASE}/":
             # dashboard principal
             return dashboard_layout
@@ -109,3 +115,4 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
     register_reles_micom_callbacks(app)
     register_mantenimiento_callbacks(app)
     register_broker_callbacks(app)
+    register_proxmox_callbacks(app)

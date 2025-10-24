@@ -91,10 +91,14 @@ MQTT_OFFLINE_RETAIN = True
 MQTT_TOPIC_MODEM_CONEXION = "topico/subtopico/conexion_modem"  # payload: {"estado":"conectado"|"desconectado","ts":"..."}
 MQTT_TOPIC_GRADO           = "topico/subtopico/grado"          # payload: {"porcentaje": 58.3, "total": N, "conectados": M, "ts": "..."}
 MQTT_TOPIC_GRDS            = "topico/subtopico/grds"           # payload: {"items":[{"id":11,"nombre":"...","ultima_caida":"..."}], "ts":"..."}
+MQTT_TOPIC_EMAIL_ESTADO    = "topico/subtopico/email"          # payload: {"smtp":"conectado","ping_local":"desconectado","ping_remoto":"conectado","ts":"..."}
+MQTT_TOPIC_EMAIL_EVENT     = "topico/eventos/email"            # payload: {"type":"email","subject":"...","ok":true,"ts":"..."}
 
 # QoS/retain por defecto
 MQTT_PUBLISH_QOS_STATE = 1
 MQTT_PUBLISH_RETAIN_STATE = True
+MQTT_PUBLISH_QOS_EVENT = 1
+MQTT_PUBLISH_RETAIN_EVENT = False
 
 # ---------------- RPC sobre MQTT (request/response) ----------------------
 # El cliente publica requests en este arbol. El servidor responde SIEMPRE
@@ -125,3 +129,14 @@ DATABASE_NAME = "basedatos.db"  # Nombre de la base de datos
 POBLAR_BD = False                        # poblar con datos de test
 HISTORICAL_DAYS_TO_GENERATE = 30         # dias a generar desde fecha actual
 HISTORICAL_DATA_INTERVAL_SECONDS = 900   # Intervalo de generacion de datos (en segundos)
+
+# ---------------------------------------------------------
+# --- Proxmox (PVE) ---------------------------------------
+# ---------------------------------------------------------
+PVE_BASE_URL = "https://mi-proxmox:8006/api2/json"
+PVE_API_TOKEN = "usuario@realm!token=secreto"
+PVE_NODE_NAME = "nombre-nodo"
+PVE_VHOST_IDS = [1]
+PVE_POLL_INTERVAL_SECONDS = 20
+PVE_HTTP_TIMEOUT_SECONDS = 8
+PVE_VERIFY_SSL = False

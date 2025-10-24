@@ -14,7 +14,8 @@ class GrdMiddlewareClient:
       - GRDs down:      config.MQTT_TOPIC_GRDS
     """
     def __init__(self, modbus_driver: ModbusTcpDriver, default_unit_id: int,
-                 register_count: int, refresh_interval: int, logger: Logosaurio):
+                 register_count: int, refresh_interval: int, logger: Logosaurio,
+                 mqtt_manager):
         self.driver = modbus_driver
         self.default_unit_id = default_unit_id
         self.register_count = register_count
@@ -23,7 +24,7 @@ class GrdMiddlewareClient:
         self._active_grd_data = None
         self._last_grd_data_refresh = 0
 
-        self.publisher = MqttTopicPublisher(logger=self.logger)
+        self.publisher = MqttTopicPublisher(logger=self.logger, manager=mqtt_manager)
 
         self._last_payload_grado = None
         self._last_payload_down = None

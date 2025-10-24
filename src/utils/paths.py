@@ -1,10 +1,13 @@
 import os
 import json
+import threading
 from typing import Any, Dict, Optional
 
 # -------------------------
 # resolucion de rutas base
 # -------------------------
+
+_OBSERVAR_LOCK = threading.RLock()
 
 def get_project_root() -> str:
     """
@@ -19,6 +22,12 @@ def get_servicios_dir() -> str:
     retorna ruta absoluta al directorio src/servicios
     """
     return os.path.join(get_project_root(), "src", "servicios")
+
+def get_data_dir() -> str:
+    """
+    retorna ruta absoluta al directorio data (persistente)
+    """
+    return os.path.join(get_project_root(), "data")
 
 def get_observar_path() -> str:
     """
@@ -73,13 +82,15 @@ def load_observar() -> Dict[str, Any]:
     """
     retorna todo el contenido de observar.json como dict
     """
-    return _load_json_file(get_observar_path())
+    with _OBSERVAR_LOCK:
+        return _load_json_file(get_observar_path())
 
 def save_observar(data: Dict[str, Any]) -> bool:
     """
     guarda el dict completo en observar.json
     """
-    return _save_json_file(get_observar_path(), data)
+    with _OBSERVAR_LOCK:
+        return _save_json_file(get_observar_path(), data)
 
 def load_observar_key(key: str, default: Optional[Any] = None) -> Any:
     """
@@ -92,6 +103,8 @@ def update_observar_key(key: str, value: Any) -> bool:
     """
     actualiza una clave en observar.json preservando el resto
     """
-    data = load_observar()
-    data[key] = value
-    return save_observar(data)
+    with _OBSERVAR_LOCK:
+        path = get_observar_path()
+        data = _load_json_file(path)
+        data[key] = value
+        return _save_json_file(path, data)

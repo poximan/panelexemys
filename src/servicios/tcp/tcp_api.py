@@ -8,10 +8,10 @@ from src.utils.paths import update_observar_key
 import config
 
 # parametros de backoff
-base_interval = 300  # segundos, comportamiento actual por defecto
-backoff = 30         # primer espera corta ante fallo
-backoff_max = 900    # maximo 15 min
-backoff_multiplier = 2
+BASE_INTERVAL_SECONDS = 300  # segundos, comportamiento actual por defecto
+BACKOFF_INITIAL = 30         # primer espera corta ante fallo
+BACKOFF_MAX = 900            # maximo 15 min
+BACKOFF_MULTIPLIER = 2
 
 class check_host:
     """
@@ -27,17 +27,18 @@ class check_host:
         """
         return self.tcp_class.tcp_run(target=target, max_nodes=max_nodes)
 
-def start_api_monitor(logger: Logosaurio, host: str, port: int):
+def start_api_monitor(logger: Logosaurio, host: str, port: int, mqtt_manager):
     """
     hilo que monitorea el estado del modem/ruteo y publica su estado en mqtt.
     ademas persiste ip200_estado en observar.json
     """
-    publisher = MqttTopicPublisher(logger=logger)
+    publisher = MqttTopicPublisher(logger=logger, manager=mqtt_manager)
     last_payload = None
+    failure_sleep = BACKOFF_INITIAL
+    check_host_instance = check_host(logger)
 
     while True:
         try:
-            check_host_instance = check_host(logger)
             connection_ok = check_host_instance.check_host_run(target=f"{host}:{port}", max_nodes=3)
 
             current_status = "conectado" if connection_ok else "desconectado"
@@ -67,15 +68,15 @@ def start_api_monitor(logger: Logosaurio, host: str, port: int):
             # estrategia de espera
             if connection_ok:
                 # exito: resetea backoff y vuelve al intervalo base
-                backoff = 30
-                time.sleep(base_interval)
+                failure_sleep = BACKOFF_INITIAL
+                time.sleep(BASE_INTERVAL_SECONDS)
             else:
                 # fallo: aplica backoff exponencial con tope
-                time.sleep(backoff)
-                backoff = min(backoff * backoff_multiplier, backoff_max)
+                time.sleep(failure_sleep)
+                failure_sleep = min(failure_sleep * BACKOFF_MULTIPLIER, BACKOFF_MAX)
 
         except Exception as e:
             logger.log(f"Error inesperado en el monitor TCP: {e}", origen="TCP/API")
             # en excepcion tambien aplica backoff
-            time.sleep(backoff)
-            backoff = min(backoff * backoff_multiplier, backoff_max)
+            time.sleep(failure_sleep)
+            failure_sleep = min(failure_sleep * BACKOFF_MULTIPLIER, BACKOFF_MAX)

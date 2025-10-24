@@ -5,7 +5,7 @@ from .server_mb_middleware import GrdMiddlewareClient
 from .server_mb_reles import ProtectionRelayClient
 import config
 
-def start_modbus_orchestrator(logger: Logosaurio):
+def start_modbus_orchestrator(logger: Logosaurio, mqtt_manager):
     """
     Funcion principal para iniciar y orquestar los observadores Modbus.
     """    
@@ -31,7 +31,8 @@ def start_modbus_orchestrator(logger: Logosaurio):
         default_unit_id=config.MB_ID,
         register_count=config.MB_COUNT,
         refresh_interval=config.MB_INTERVAL_SECONDS,
-        logger=logger
+        logger=logger,
+        mqtt_manager=mqtt_manager,
     )
 
     # --- 3. Inicializacion del Cliente de Reles de Proteccion ---

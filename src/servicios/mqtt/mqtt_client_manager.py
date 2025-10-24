@@ -1,5 +1,5 @@
 import queue
-from typing import List, Tuple, Optional
+from typing import Callable, List, Tuple, Optional
 from .mqtt_driver import MqttDriver
 import config
 
@@ -19,6 +19,7 @@ class MqttClientManager:
 
         # Mensajes entrantes: por defecto una cola nueva
         self.msg_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
+        self._listeners: List[Tuple[str, Callable[[str, str], None]]] = []
 
         # Si erróneamente nos pasan una Queue en 'subscriptions', la tomamos como msg_queue
         if isinstance(subscriptions, queue.Queue):
@@ -102,6 +103,13 @@ class MqttClientManager:
         except queue.Full:
             pass
 
+        for prefix, callback in list(self._listeners):
+            if msg.topic.startswith(prefix):
+                try:
+                    callback(msg.topic, payload)
+                except Exception as exc:
+                    self.log.log(f"MQTT Client Manager: listener error ({prefix}): {exc}", origen=self._origen)
+
     # ----------------- API hacia el resto del sistema
     def publish(self, topic: str, payload, qos: int = 0, retain: bool = False):
         self.driver.publish(topic, payload, qos=qos, retain=retain)
@@ -130,3 +138,12 @@ class MqttClientManager:
     def set_message_queue(self, q: "queue.Queue[Tuple[str,str]]"):
         if isinstance(q, queue.Queue):
             self.msg_queue = q
+
+    def register_prefix_listener(self, prefix: str, callback: Callable[[str, str], None]) -> None:
+        """
+        Registra un callback para los mensajes cuyo topic comience con prefix.
+        El listener NO consume la cola compartida.
+        """
+        if not callable(callback):
+            raise ValueError("callback debe ser invocable")
+        self._listeners.append((prefix, callback))
