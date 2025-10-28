@@ -5,6 +5,7 @@ from dash.dependencies import Input, Output
 import time
 from src.utils.paths import load_observar
 from ..servicios.email.mensagelo_client import MensageloClient
+from ..servicios.mqtt import mqtt_event_bus
 import config
 
 # Definicion del layout para la pagina de Mantenimiento
@@ -89,9 +90,11 @@ def register_mantenimiento_callbacks(app: dash.Dash):
     def handle_probar_email(n_clicks):
         if n_clicks > 0:
             test_recipient = config.ALARM_EMAIL_RECIPIENT
-            test_subject = "Email de Prueba"
+            origin_label = "Panelexemys - backend"
+            test_subject = f"Email de Prueba ({origin_label})"
+            prefixed_subject = f"{config.ALARM_EMAIL_SUBJECT_PREFIX}{test_subject}"
             test_body = (
-                f"Este es un email de prueba enviado desde panelexemys. "
+                f"Este es un email de prueba enviado desde {origin_label}. "
                 f"Fecha y Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
@@ -100,12 +103,20 @@ def register_mantenimiento_callbacks(app: dash.Dash):
                 client = MensageloClient()
                 ok, msg = client.enqueue_email(
                     recipients=test_recipient,
-                    subject=f"{config.ALARM_EMAIL_SUBJECT_PREFIX}{test_subject}",
+                    subject=prefixed_subject,
                     body=test_body,
                     message_type="maintenance_test"
                 )
             except Exception as e:
                 ok, msg = False, f"error al contactar mensagelo: {e}"
+
+            try:
+                mqtt_event_bus.publish_email_event(
+                    subject=prefixed_subject,
+                    ok=ok
+                )
+            except Exception:
+                pass
 
             if ok:
                 return html.Div([

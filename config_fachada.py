@@ -1,4 +1,4 @@
-# ---------------------------------------------------------
+﻿# ---------------------------------------------------------
 # --- middleware exemys -----------------------------------
 # ---------------------------------------------------------
 MB_HOST = '1.1.1.1'        # IP del servidor Modbus TCP al que te conectaras
@@ -102,20 +102,13 @@ MQTT_PUBLISH_RETAIN_EVENT = False
 
 # ---------------- RPC sobre MQTT (request/response) ----------------------
 # El cliente publica requests en este arbol. El servidor responde SIEMPRE
-# usando alguno de los 3 topicos ya suscritos por el movil (reply_to).
+# usando alguno de los topicos ya suscritos por el movil (reply_to).
 MQTT_RPC_REQ_ROOT = "app/req"        # nos suscribimos a "app/req/#"
 # Acciones soportadas (para validacion/evolucion)
-MQTT_RPC_ALLOWED_ACTIONS = {
-    "get_global_status",   # responde en estado/exemys con resumen + ultimos estados por GRD
-    "get_modem_status",    # responde en estado/sensor con estado del modem
-}
+MQTT_RPC_ALLOWED_ACTIONS = {\n    "get_global_status",   # responde en estado/exemys con resumen + ultimos estados por GRD\n    "get_modem_status",    # responde en estado/sensor con estado del modem\n    "send_email_test",     # dispara un correo de prueba via mensagelo\n}
 
 # TOPICOS VALIDOS PARA reply_to (solo los 3)
-MQTT_RPC_ALLOWED_REPLY_TO = {
-    MQTT_TOPIC_MODEM_CONEXION,
-    MQTT_TOPIC_GRADO,
-    MQTT_TOPIC_GRDS,
-}
+MQTT_RPC_ALLOWED_REPLY_TO = {\n    MQTT_TOPIC_MODEM_CONEXION,\n    MQTT_TOPIC_GRADO,\n    MQTT_TOPIC_GRDS,\n    MQTT_TOPIC_EMAIL_EVENT,\n}
 
 # ---------------------------------------------------------
 # --- Base de Datos ---------------------------------------
@@ -140,3 +133,5 @@ PVE_VHOST_IDS = [1]
 PVE_POLL_INTERVAL_SECONDS = 20
 PVE_HTTP_TIMEOUT_SECONDS = 8
 PVE_VERIFY_SSL = False
+
+

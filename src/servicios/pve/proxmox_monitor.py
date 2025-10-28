@@ -126,7 +126,9 @@ def _build_snapshot(
     timeout: int,
     verify_ssl: bool,
     logger: Logosaurio,
-) -> Tuple[List[Dict[str, Any]], List[int]]:
+    prev_counters: Dict[int, Tuple[float, float]],
+    poll_interval_seconds: int,
+) -> Tuple[List[Dict[str, Any]], List[int], Dict[int, Tuple[float, float]]]:
     """
     Filtra la lista de VMs obtenidas quedandose solo con los VMIDs solicitados.
     Ademas calcula los VMIDs faltantes.
@@ -134,6 +136,7 @@ def _build_snapshot(
     vm_by_id = {int(item.get("vmid")): item for item in qemu_list if "vmid" in item}
     snapshot: List[Dict[str, Any]] = []
     missing: List[int] = []
+    updated_counters: Dict[int, Tuple[float, float]] = {}
 
     for vmid in vm_ids:
         raw = vm_by_id.get(int(vmid))
@@ -145,9 +148,12 @@ def _build_snapshot(
         mem_max_raw = float(raw.get("maxmem") or 0.0)
         uptime_seconds = int(raw.get("uptime") or 0)
 
-        disk_used_raw = None
-        disk_total_raw = None
+        raw_disk_used = float(raw.get("disk") or 0.0)
+        raw_disk_total = float(raw.get("maxdisk") or 0.0)
+        raw_disk_read = float(raw.get("diskread") or 0.0)
+        raw_disk_write = float(raw.get("diskwrite") or 0.0)
         disk_error: str | None = None
+        status_data: Dict[str, Any] | None = None
         try:
             status_data = _fetch_vm_status(
                 base_url=base_url,
@@ -157,14 +163,31 @@ def _build_snapshot(
                 timeout=timeout,
                 verify_ssl=verify_ssl,
             )
-            disk_used_raw = float(status_data.get("disk") or 0.0)
-            disk_total_raw = float(status_data.get("maxdisk") or 0.0)
         except Exception as exc:
             disk_error = str(exc)
             try:
                 logger.log(f"No se pudo obtener status/disk de VM {vmid}: {exc}", origen="PVE/MON")
             except Exception:
                 pass
+
+        if isinstance(status_data, dict):
+            raw_disk_used = float(status_data.get("disk") or raw_disk_used or 0.0)
+            raw_disk_total = float(status_data.get("maxdisk") or raw_disk_total or 0.0)
+            raw_disk_read = float(status_data.get("diskread") or raw_disk_read or 0.0)
+            raw_disk_write = float(status_data.get("diskwrite") or raw_disk_write or 0.0)
+
+        prev_read, prev_write = prev_counters.get(int(vmid), (raw_disk_read, raw_disk_write))
+        delta_read = max(0.0, raw_disk_read - prev_read)
+        delta_write = max(0.0, raw_disk_write - prev_write)
+        interval = max(1, poll_interval_seconds)
+        read_rate_bps = delta_read / interval
+        write_rate_bps = delta_write / interval
+
+        disk_used_gb = _gb(raw_disk_used)
+        disk_total_gb = _gb(raw_disk_total)
+        disk_usage_pct = _safe_pct(raw_disk_used, raw_disk_total)
+
+        updated_counters[int(vmid)] = (raw_disk_read, raw_disk_write)
 
         snapshot.append(
             {
@@ -175,22 +198,26 @@ def _build_snapshot(
                 "cpu_usage_pct": round(float(raw.get("cpu") or 0.0) * 100.0, 2),
                 "mem_used_gb": _gb(mem_used_raw),
                 "mem_total_gb": _gb(mem_max_raw),
-                "mem_usage_pct": _safe_pct(mem_used_raw or 0.0, mem_max_raw or 0.0),
+                "mem_usage_pct": _safe_pct(mem_used_raw, mem_max_raw),
                 "uptime_seconds": uptime_seconds,
                 "uptime_human": _uptime_human(uptime_seconds),
-                "disk_used_gb": _gb(disk_used_raw or 0.0),
-                "disk_total_gb": _gb(disk_total_raw or 0.0),
-                "disk_usage_pct": _safe_pct(disk_used_raw or 0.0, disk_total_raw or 0.0),
+                "disk_used_gb": disk_used_gb,
+                "disk_total_gb": disk_total_gb,
+                "disk_usage_pct": disk_usage_pct,
+                "disk_read_bytes": raw_disk_read,
+                "disk_write_bytes": raw_disk_write,
+                "disk_read_rate_bps": read_rate_bps,
+                "disk_write_rate_bps": write_rate_bps,
                 "status_detail_error": disk_error,
             }
         )
 
     snapshot.sort(key=lambda item: item["vmid"])
     missing.sort()
-    return snapshot, missing
+    return snapshot, missing, updated_counters
 
 
-def _collect_status(logger: Logosaurio) -> Dict[str, Any]:
+def _collect_status(logger: Logosaurio, prev_counters: Dict[int, Tuple[float, float]], poll_interval_seconds: int) -> Tuple[Dict[str, Any], Dict[int, Tuple[float, float]]]:
     """
     Obtiene y arma el snapshot actual de Proxmox.
     """
@@ -207,7 +234,7 @@ def _collect_status(logger: Logosaurio) -> Dict[str, Any]:
     vm_ids = list(getattr(config, "PVE_VHOST_IDS", [101, 102])) or []
 
     qemu_list = _fetch_qemu_data(base_url, node, headers, timeout, verify_ssl)
-    vms, missing = _build_snapshot(
+    vms, missing, updated_counters = _build_snapshot(
         qemu_list=qemu_list,
         vm_ids=vm_ids,
         base_url=base_url,
@@ -216,6 +243,8 @@ def _collect_status(logger: Logosaurio) -> Dict[str, Any]:
         timeout=timeout,
         verify_ssl=verify_ssl,
         logger=logger,
+        prev_counters=prev_counters,
+        poll_interval_seconds=poll_interval_seconds,
     )
 
     snapshot = {
@@ -226,7 +255,7 @@ def _collect_status(logger: Logosaurio) -> Dict[str, Any]:
     }
     if missing:
         logger.log(f"PVE faltantes en respuesta: {missing}", origen="PVE/MON")
-    return snapshot
+    return snapshot, updated_counters
 
 
 def _build_mqtt_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
@@ -256,11 +285,21 @@ def _build_mqtt_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         cpu_pct = float(item.get("cpu_usage_pct") or 0.0)
         mem_used = float(item.get("mem_used_gb") or 0.0)
         mem_total = float(item.get("mem_total_gb") or 0.0)
-        mem_pct = float(item.get("mem_usage_pct") or 0.0)
+        mem_pct_raw = item.get("mem_usage_pct")
+        mem_pct = float(mem_pct_raw) if mem_pct_raw is not None else None
         disk_used = float(item.get("disk_used_gb") or 0.0)
         disk_total = float(item.get("disk_total_gb") or 0.0)
+        disk_read_bytes = float(item.get("disk_read_bytes") or 0.0)
+        disk_write_bytes = float(item.get("disk_write_bytes") or 0.0)
+        disk_read_rate = float(item.get("disk_read_rate_bps") or 0.0)
+        disk_write_rate = float(item.get("disk_write_rate_bps") or 0.0)
         disk_pct_raw = item.get("disk_usage_pct")
         disk_pct = float(disk_pct_raw) if disk_pct_raw is not None else None
+
+        if mem_pct is None and mem_total > 0:
+            mem_pct = (mem_used / mem_total) * 100.0
+        if disk_pct is None and disk_total > 0:
+            disk_pct = (disk_used / disk_total) * 100.0
 
         payload["vms"].append(
             {
@@ -272,10 +311,14 @@ def _build_mqtt_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
                 "cpu_pct": round(cpu_pct, 2),
                 "mem_used_gb": round(mem_used, 2),
                 "mem_total_gb": round(mem_total, 2),
-                "mem_pct": round(mem_pct, 2),
+                "mem_pct": round(mem_pct, 2) if mem_pct is not None else None,
                 "disk_used_gb": round(disk_used, 2),
                 "disk_total_gb": round(disk_total, 2),
                 "disk_pct": round(disk_pct, 2) if disk_pct is not None else None,
+                "disk_read_bytes": round(disk_read_bytes, 2),
+                "disk_write_bytes": round(disk_write_bytes, 2),
+                "disk_read_rate_bps": round(disk_read_rate, 2),
+                "disk_write_rate_bps": round(disk_write_rate, 2),
                 "uptime_human": item.get("uptime_human") or "0m",
             }
         )
@@ -298,10 +341,15 @@ def start_proxmox_monitor(logger: Logosaurio) -> None:
     last_ts: str | None = None
     last_publish_monotonic = 0.0
     last_published_payload: Dict[str, Any] | None = None
+    last_disk_counters: Dict[int, Tuple[float, float]] = {}
 
     while True:
         try:
-            snapshot = _collect_status(logger)
+            snapshot, last_disk_counters = _collect_status(
+                logger,
+                last_disk_counters,
+                poll_seconds,
+            )
             proxmox_history.update_history(snapshot, poll_seconds=poll_seconds, hours=history_hours)
         except Exception as exc:  # pragma: no cover - monitoreo defensivo
             snapshot = {
@@ -319,14 +367,15 @@ def start_proxmox_monitor(logger: Logosaurio) -> None:
 
         payload = _build_mqtt_payload(snapshot)
         now_monotonic = time.monotonic()
-        should_publish = False
         previous_payload = last_published_payload or {}
+        elapsed = now_monotonic - last_publish_monotonic
 
+        should_publish = False
         if last_publish_monotonic == 0.0:
             should_publish = True
         elif payload.get("status") != previous_payload.get("status"):
             should_publish = True
-        elif payload != previous_payload and (now_monotonic - last_publish_monotonic) >= publish_interval_seconds:
+        elif elapsed >= publish_interval_seconds:
             should_publish = True
 
         if should_publish:
@@ -354,3 +403,4 @@ def start_proxmox_monitor(logger: Logosaurio) -> None:
             last_ts = current_ts
 
         time.sleep(interval)
+

@@ -4,6 +4,7 @@ from src.persistencia.dao.dao_historicos import historicos_dao as dao
 from src.persistencia.dao.dao_grd import grd_dao
 from .modbus_driver import ModbusTcpDriver
 from ..mqtt.mqtt_topic_publisher import MqttTopicPublisher
+from ..mqtt import mqtt_event_bus
 from src.logger import Logosaurio
 import config
 
@@ -66,15 +67,24 @@ class GrdMiddlewareClient:
 
         down = []
         for item in dao.get_all_disconnected_grds():
+            last_down = item.get("last_disconnected_timestamp")
+            if last_down:
+                try:
+                    ultima_caida = last_down.strftime("%Y-%m-%dT%H:%M:%S")
+                except Exception:
+                    ultima_caida = str(last_down)
+            else:
+                ultima_caida = ""
             down.append({
                 "id": item["id_grd"],
                 "nombre": item["description"],
-                "ultima_caida": item["last_disconnected_timestamp"].strftime("%Y-%m-%dT%H:%M:%S")
+                "ultima_caida": ultima_caida
             })
 
+        down_timestamp = datetime.now().isoformat(timespec="seconds")
         down_payload = {
             "items": down,
-            "ts": datetime.now().isoformat(timespec="seconds")
+            "ts": down_timestamp
         }
 
         # Publicar grado si cambió
@@ -89,10 +99,9 @@ class GrdMiddlewareClient:
 
         # Publicar desconectados si cambió
         if down_payload != self._last_payload_down:
-            self.publisher.publish_json(
-                config.MQTT_TOPIC_GRDS, down_payload,
-                qos=config.MQTT_PUBLISH_QOS_STATE,
-                retain=config.MQTT_PUBLISH_RETAIN_STATE
+            mqtt_event_bus.publish_exemys_grd_change(
+                snapshot=down_payload,
+                ts=down_timestamp
             )
             self._last_payload_down = down_payload
             self.logger.log(f"Publicado snapshot de desconectados en {config.MQTT_TOPIC_GRDS}: {down_payload}", origen="OBS/MW")
