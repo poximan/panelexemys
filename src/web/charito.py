@@ -327,7 +327,7 @@ def _build_process_row(processes: List[Dict[str, Any]]) -> html.Div:
                 className="charito-process-item",
                 children=[
                     html.Div(className=tile_class, children=[
-                        html.Div(f"{{{name}}}", className="charito-process-title"),
+                        html.Div(name, className="charito-process-title"),
                         html.Div(label_state, className="charito-process-state"),
                     ])
                 ],
