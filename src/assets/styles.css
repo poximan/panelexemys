@@ -590,6 +590,12 @@
     gap: 2px;
 }
 
+.proxmox-card-name-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .proxmox-card-vmid {
     font-size: 0.82rem;
     font-weight: 600;
@@ -602,6 +608,12 @@
     font-size: 1.15rem;
     font-weight: 700;
     color: #2c3e50;
+}
+
+.proxmox-card-subtitle {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: #7f8c8d;
 }
 
 .proxmox-card-status {
@@ -714,6 +726,42 @@
     flex-direction: column;
     gap: 16px;
     justify-content: center;
+}
+
+.proxmox-disk-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.proxmox-disk-total {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #34495e;
+}
+
+.proxmox-disk-io {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.proxmox-disk-io-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.proxmox-disk-io-label {
+    font-weight: 600;
+    color: #7f8c8d;
+}
+
+.proxmox-disk-io-value {
+    font-weight: 600;
+    color: #2c3e50;
 }
 
 .proxmox-usage-row {
@@ -836,6 +884,170 @@
 
 .proxmox-card-placeholder-text {
     padding: 12px;
+}
+
+.charito-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.charito-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 24px;
+    margin-top: 16px;
+}
+
+.charito-card {
+    position: relative;
+}
+
+.charito-card-stale {
+    border-left: 4px solid #e74c3c;
+}
+
+.charito-card-placeholder {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.charito-placeholder-text {
+    padding: 14px;
+}
+
+/* --- Charito: Processes row --- */
+.charito-process-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.charito-process-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.charito-process-square {
+    width: 12px;
+    height: 12px;
+    display: inline-block;
+    border: 1px solid #cbd5e1;
+}
+.charito-process-square--ok { background-color: #27ae60; border-color: #229954; }
+.charito-process-square--down { background-color: #e74c3c; border-color: #cb4335; }
+.charito-process-square--unknown { background-color: #bdc3c7; border-color: #aab7b8; }
+
+.charito-process-label {
+    font-size: 0.85rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.charito-process-empty {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.charito-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.charito-card-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.charito-card-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.charito-card-subtitle {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+}
+
+.charito-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(39, 174, 96, 0.12);
+    color: #1d7d46;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.charito-status-badge--stale {
+    background: rgba(231, 76, 60, 0.12);
+    color: #c0392b;
+}
+
+.charito-last-seen,
+.charito-last-sample {
+    font-size: 0.82rem;
+    color: #7f8c8d;
+}
+
+.charito-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.charito-section-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #34495e;
+}
+
+.charito-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95rem;
+    color: #2c3e50;
+}
+
+.charito-metric-pair {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+}
+
+.charito-metric {
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.charito-metric-label {
+    font-size: 0.78rem;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.charito-metric-value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #2c3e50;
 }
 
 @media (max-width: 768px) {

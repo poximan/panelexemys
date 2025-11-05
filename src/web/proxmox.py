@@ -3,8 +3,10 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import dash_daq as daq
 import plotly.graph_objects as go
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 from src.utils.paths import load_observar
 from src.servicios.pve import proxmox_history
@@ -12,6 +14,17 @@ import config
 
 
 DEFAULT_VIEW = getattr(config, "PVE_DASHBOARD_VIEW", "history").lower()
+def _get_local_tz():
+    try:
+        return ZoneInfo(getattr(config, "APP_TIMEZONE", "America/Argentina/Buenos_Aires"))
+    except Exception:
+        try:
+            offset_min = int(getattr(config, "APP_UTC_OFFSET_MINUTES", -180))
+            return timezone(timedelta(minutes=offset_min))
+        except Exception:
+            return timezone.utc
+
+LOCAL_TZ = _get_local_tz()
 
 
 def _build_placeholder_card(message: str) -> html.Div:
@@ -67,55 +80,54 @@ def _usage_fill_color(pct: float | None) -> str:
     return "#2ecc71"
 
 
-def _build_usage_row(
-    label: str,
-    used: Any,
-    total: Any,
-    unit: str = "GB",
-    pct_override: Any | None = None,
-) -> html.Div:
-    used_val = _safe_float(used)
-    total_val = _safe_float(total)
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        text = str(value)
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
-    pct: float | None
-    if pct_override is not None:
-        pct = _clamp_pct(pct_override)
-    elif total_val > 0:
-        pct = _clamp_pct((used_val / total_val) * 100.0)
-    else:
-        pct = None
 
-    if pct is None or total_val <= 0:
-        display_value = "N/D"
-        bar_width = "0%"
-    else:
-        display_value = f"{used_val:.1f} / {total_val:.1f} {unit} ({pct:.0f}%)"
-        bar_width = f"{pct:.0f}%"
+def _format_local_timestamp(value: Any) -> str:
+    dt = _parse_timestamp(value)
+    if dt is None:
+        return "N/D"
+    local_dt = dt.astimezone(LOCAL_TZ)
+    return local_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    fill_style = {
-        "width": bar_width,
-        "background": _usage_fill_color(pct),
-        "height": "100%",
-        "borderRadius": "999px",
-        "transition": "width 0.4s ease",
-    }
 
-    return html.Div(
-        className="proxmox-usage-row",
-        children=[
-            html.Div(
-                className="proxmox-usage-header",
-                children=[
-                    html.Span(label, className="proxmox-usage-label"),
-                    html.Span(display_value, className="proxmox-usage-value"),
-                ],
-            ),
-            html.Div(
-                className="proxmox-progress-track",
-                children=[html.Div(className="proxmox-progress-fill", style=fill_style)],
-            ),
-        ],
-    )
+def _relative_time(value: Any) -> str:
+    dt = _parse_timestamp(value)
+    if dt is None:
+        return ""
+    now = datetime.now(timezone.utc)
+    delta = now - dt
+    seconds = max(int(delta.total_seconds()), 0)
+    if seconds < 60:
+        return f"hace {seconds}s"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"hace {minutes}m"
+    hours = minutes // 60
+    if hours < 24:
+        remaining_minutes = minutes % 60
+        return f"hace {hours}h {remaining_minutes}m"
+    days = hours // 24
+    return f"hace {days}d"
+
+
+def _format_last_update_text(ts: Any) -> str:
+    local_ts = _format_local_timestamp(ts)
+    return f"Ultima actualizacion: {local_ts}"
+
+
 
 
 def _format_capacity(used: Any, total: Any) -> str:
@@ -126,10 +138,71 @@ def _format_capacity(used: Any, total: Any) -> str:
     return f"{used_val:.1f} / {total_val:.1f} GB"
 
 
+def _format_disk_total(total: Any) -> str:
+    total_val = _safe_float(total)
+    if total_val <= 0:
+        return "Disco asignado: N/D"
+    return f"Disco asignado: {total_val:.1f} GB"
+
+
+def _format_rate_per_second(value: Any) -> str:
+    rate = _safe_float(value)
+    if rate <= 0:
+        return "0 KB/s"
+
+    units = ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]
+    idx = 0
+    while rate >= 1024 and idx < len(units) - 1:
+        rate /= 1024.0
+        idx += 1
+
+    return f"{rate:.1f} {units[idx]}"
+
+
+def _build_disk_section(
+    disk_total: Any,
+    disk_read_rate: Any,
+    disk_write_rate: Any,
+) -> html.Div:
+    return html.Div(
+        className="proxmox-disk-section",
+        children=[
+            html.Div(
+                _format_disk_total(disk_total),
+                className="proxmox-disk-total",
+            ),
+            html.Div(
+                className="proxmox-disk-io",
+                children=[
+                    html.Div(
+                        className="proxmox-disk-io-item",
+                        children=[
+                            html.Span("Lectura ", className="proxmox-disk-io-label"),
+                            html.Span(
+                                _format_rate_per_second(disk_read_rate),
+                                className="proxmox-disk-io-value",
+                            ),
+                        ],
+                    ),
+                    html.Div(
+                        className="proxmox-disk-io-item",
+                        children=[
+                            html.Span("Escritura ", className="proxmox-disk-io-label"),
+                            html.Span(
+                                _format_rate_per_second(disk_write_rate),
+                                className="proxmox-disk-io-value",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+
 _HISTORY_METRICS = [
     ("cpu_pct", "CPU uso", "#2980b9", "rgba(41, 128, 185, 0.25)"),
     ("mem_pct", "Memoria", "#8e44ad", "rgba(142, 68, 173, 0.25)"),
-    ("disk_pct", "Disco", "#16a085", "rgba(22, 160, 133, 0.25)"),
 ]
 
 
@@ -147,8 +220,10 @@ def _parse_history_series(history: Dict[str, Any], key: str) -> List[Dict[str, A
         value_raw = item.get("value")
         if ts_raw is None or value_raw is None:
             continue
+        dt = _parse_timestamp(ts_raw)
+        if dt is None:
+            continue
         try:
-            dt = datetime.fromisoformat(str(ts_raw))
             value = float(value_raw)
         except Exception:
             continue
@@ -243,18 +318,18 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
         cpus = vm.get("cpus", "N/D")
         mem_used = vm.get("mem_used_gb")
         mem_total = vm.get("mem_total_gb")
-        disk_used = vm.get("disk_used_gb")
         disk_total = vm.get("disk_total_gb")
+        disk_read_rate = vm.get("disk_read_rate_bps")
+        disk_write_rate = vm.get("disk_write_rate_bps")
         warning = vm.get("status_detail_error")
-        history = vm.get("history") or {}
+        history_payload = vm.get("history") or {}
+        meta_text = f"vCPUs: {cpus} - Uptime: {uptime}"
 
         charts = []
         for key, label, color, fill in _HISTORY_METRICS:
             subtitle = ""
             if key == "mem_pct":
                 subtitle = _format_capacity(mem_used, mem_total)
-            elif key == "disk_pct":
-                subtitle = _format_capacity(disk_used, disk_total)
             charts.append(
                 _build_history_chart(
                     vmid,
@@ -262,7 +337,7 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
                     label,
                     color,
                     fill,
-                    history,
+                    history_payload,
                     subtitle=subtitle,
                 )
             )
@@ -278,7 +353,16 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
                                 className="proxmox-card-title",
                                 children=[
                                     html.Span(f"VM {vmid}", className="proxmox-card-vmid"),
-                                    html.Span(name, className="proxmox-card-name"),
+                                    html.Div(
+                                        className="proxmox-card-name-container",
+                                        children=[
+                                            html.Span(name, className="proxmox-card-name"),
+                                            html.Span(
+                                                meta_text,
+                                                className="proxmox-card-subtitle",
+                                            ),
+                                        ],
+                                    ),
                                 ],
                             ),
                             html.Div(
@@ -304,25 +388,7 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
                                 className="proxmox-history-grid",
                                 children=charts,
                             ),
-                            html.Div(
-                                className="proxmox-extra-section",
-                                children=[
-                                    html.Div(
-                                        className="proxmox-extra-metric",
-                                        children=[
-                                            html.Span("vCPUs:", className="proxmox-extra-label"),
-                                            html.Span(str(cpus), className="proxmox-extra-value"),
-                                        ],
-                                    ),
-                                    html.Div(
-                                        className="proxmox-extra-metric",
-                                        children=[
-                                            html.Span("Uptime:", className="proxmox-extra-label"),
-                                            html.Span(uptime, className="proxmox-extra-value"),
-                                        ],
-                                    ),
-                                ],
-                            ),
+                            _build_disk_section(disk_total, disk_read_rate, disk_write_rate),
                         ],
                     ),
                     (
@@ -354,9 +420,10 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
         cpus = vm.get("cpus", "N/D")
         mem_used = vm.get("mem_used_gb")
         mem_total = vm.get("mem_total_gb")
-        disk_used = vm.get("disk_used_gb")
         disk_total = vm.get("disk_total_gb")
-        disk_pct = vm.get("disk_usage_pct")
+        disk_read_rate = vm.get("disk_read_rate_bps")
+        disk_write_rate = vm.get("disk_write_rate_bps")
+        meta_text = f"vCPUs: {cpus} - Uptime: {uptime}"
 
         gauge_value = max(0, min(100, cpu_pct_value))
 
@@ -371,7 +438,16 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
                                 className="proxmox-card-title",
                                 children=[
                                     html.Span(f"VM {vmid}", className="proxmox-card-vmid"),
-                                    html.Span(name, className="proxmox-card-name"),
+                                    html.Div(
+                                        className="proxmox-card-name-container",
+                                        children=[
+                                            html.Span(name, className="proxmox-card-name"),
+                                            html.Span(
+                                                meta_text,
+                                                className="proxmox-card-subtitle",
+                                            ),
+                                        ],
+                                    ),
                                 ],
                             ),
                             html.Div(
@@ -391,28 +467,20 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
                         ],
                     ),
                     html.Div(
-                        className="proxmox-card-body proxmox-card-body-classic",
+                        className="proxmox-card-body",
                         children=[
                             html.Div(
                                 className="proxmox-gauge-container",
                                 children=[
                                     daq.Gauge(
-                                        className="proxmox-gauge",
+                                        id=f"proxmox-gauge-{vmid}",
                                         min=0,
                                         max=100,
                                         value=gauge_value,
-                                        showCurrentValue=False,
-                                        label="CPU uso",
-                                        color={
-                                            "gradient": True,
-                                            "ranges": {
-                                                "#27ae60": [0, 60],
-                                                "#f1c40f": [60, 85],
-                                                "#c0392b": [85, 100],
-                                            },
-                                        },
-                                        size=140,
-                                    )
+                                        color={"gradient": True, "ranges": {"green": [0, 70], "orange": [70, 85], "red": [85, 100]}},
+                                        className="proxmox-gauge",
+                                        label="CPU",
+                                    ),
                                 ],
                             ),
                             html.Div(
@@ -424,24 +492,54 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
                             html.Div(
                                 className="proxmox-usage-section",
                                 children=[
-                                    _build_usage_row("Memoria", mem_used, mem_total),
-                                    _build_usage_row("Disco", disk_used, disk_total, pct_override=disk_pct),
                                     html.Div(
-                                        className="proxmox-extra-metric",
+                                        className="proxmox-usage-row",
                                         children=[
-                                            html.Span("vCPUs:", className="proxmox-extra-label"),
-                                            html.Span(str(cpus), className="proxmox-extra-value"),
+                                            html.Div(
+                                                className="proxmox-usage-header",
+                                                children=[
+                                                    html.Span("CPU uso", className="proxmox-usage-label"),
+                                                    html.Span(cpu_pct_display, className="proxmox-usage-value"),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="proxmox-progress-track",
+                                                children=[
+                                                    html.Div(
+                                                        className="proxmox-progress-fill",
+                                                        style={"width": f"{gauge_value:.0f}%", "backgroundColor": _usage_fill_color(gauge_value)},
+                                                    )
+                                                ],
+                                            ),
                                         ],
                                     ),
                                     html.Div(
-                                        className="proxmox-extra-metric",
+                                        className="proxmox-usage-row",
                                         children=[
-                                            html.Span("Uptime:", className="proxmox-extra-label"),
-                                            html.Span(uptime, className="proxmox-extra-value"),
+                                            html.Div(
+                                                className="proxmox-usage-header",
+                                                children=[
+                                                    html.Span("Memoria", className="proxmox-usage-label"),
+                                                    html.Span(_format_capacity(mem_used, mem_total), className="proxmox-usage-value"),
+                                                ],
+                                            ),
+                                            html.Div(
+                                                className="proxmox-progress-track",
+                                                children=[
+                                                    html.Div(
+                                                        className="proxmox-progress-fill",
+                                                        style={
+                                                            "width": f"{_clamp_pct(((_safe_float(mem_used) / _safe_float(mem_total)) * 100.0) if _safe_float(mem_total) > 0 else 0)}%",
+                                                            "backgroundColor": _usage_fill_color(((_safe_float(mem_used) / _safe_float(mem_total)) * 100.0) if _safe_float(mem_total) > 0 else 0),
+                                                        },
+                                                    )
+                                                ],
+                                            ),
                                         ],
                                     ),
                                 ],
                             ),
+                            _build_disk_section(disk_total, disk_read_rate, disk_write_rate),
                         ],
                     ),
                     (
@@ -455,12 +553,156 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
                 ],
             )
         )
+
     return cards
+
+def _latest_history_timestamp(history_map: Dict[int, Dict[str, Any]]) -> Optional[str]:
+    latest_dt: Optional[datetime] = None
+    for info in history_map.values():
+        history = info.get("history") if isinstance(info, dict) else None
+        if not isinstance(history, dict):
+            continue
+        for series in history.values():
+            if not isinstance(series, list):
+                continue
+            for point in series:
+                if not isinstance(point, dict):
+                    continue
+                ts = point.get("ts")
+                dt = _parse_timestamp(ts)
+                if dt is None:
+                    continue
+                if latest_dt is None or dt > latest_dt:
+                    latest_dt = dt
+    if latest_dt is None:
+        return None
+    utc_dt = latest_dt.astimezone(timezone.utc).replace(microsecond=0)
+    iso = utc_dt.isoformat()
+    if iso.endswith("+00:00"):
+        iso = iso[:-6] + "Z"
+    return iso
+
+
+
+
+def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = None):
+    data = load_observar()
+    prox = data.get("proxmox_estado", {}) if isinstance(data, dict) else {}
+
+    if logger is not None:
+        try:
+            logger.info("Proxmox callback payload: %s", prox)
+        except Exception:
+            pass
+
+    ts = prox.get("ts") if isinstance(prox, dict) else None
+    vms = prox.get("vms") if isinstance(prox, dict) else []
+    missing = prox.get("missing") if isinstance(prox, dict) else []
+    error = prox.get("error") if isinstance(prox, dict) else None
+
+    history_map, history_meta = proxmox_history.load_history_for_dashboard()
+    if not isinstance(vms, list):
+        vms = []
+    for vm in vms:
+        if not isinstance(vm, dict):
+            continue
+        try:
+            vmid_int = int(vm.get("vmid"))
+        except Exception:
+            continue
+        history_payload = history_map.get(vmid_int)
+        if history_payload:
+            vm["history"] = history_payload.get("history", {})
+            if not vm.get("name") and history_payload.get("name"):
+                vm["name"] = history_payload.get("name")
+
+    history_only = False
+    if not vms and history_map:
+        history_only = True
+        synthetic_vms: List[Dict[str, Any]] = []
+        for vmid, info in history_map.items():
+            synthetic_vms.append(
+                {
+                    "vmid": vmid,
+                    "name": info.get("name") or f"VM {vmid}",
+                    "status": "historico",
+                    "status_display": "SIN DATOS RECIENTES",
+                    "uptime_human": "N/D",
+                    "cpus": "N/D",
+                    "history": info.get("history") or {},
+                }
+            )
+        vms = synthetic_vms
+        if not ts:
+            ts = _latest_history_timestamp(history_map)
+
+    selected_view = DEFAULT_VIEW
+    if isinstance(view_toggle_value, bool):
+        selected_view = "history" if view_toggle_value else "classic"
+    elif isinstance(view_toggle_value, str):
+        selected_view = view_toggle_value.lower()
+    if selected_view not in {"history", "classic"}:
+        selected_view = "history"
+    if history_only:
+        selected_view = "history"
+
+    if vms:
+        if selected_view == "classic" and not history_only:
+            cards = _build_classic_cards(vms)
+        else:
+            cards = _build_history_cards(vms, history_meta or {})
+    else:
+        cards = [
+            _build_placeholder_card(
+                "Sin datos disponibles. Esperando la primera actualizacion..."
+            )
+        ]
+
+    last_update = _format_last_update_text(ts)
+
+    if error:
+        status_element = html.Div(
+            "Hipervisor Proxmox no responde.",
+            style={"color": "#c0392b", "fontWeight": "600"},
+            title=str(error),
+        )
+    else:
+        status_children: List[html.Div] = []
+        if history_only:
+            status_children.append(
+                html.Div(
+                    "Mostrando datos historicos (sin snapshot reciente).",
+                    style={"color": "#e67e22", "fontWeight": "600"},
+                )
+            )
+        else:
+            status_children.append(
+                html.Div(
+                    "Hipervisor Proxmox en linea.",
+                    style={"color": "#27ae60", "fontWeight": "600"},
+                )
+            )
+        if missing:
+            missing_str = ", ".join(str(m) for m in missing)
+            status_children.append(
+                html.Div(
+                    f"VM sin datos en la ultima consulta: {missing_str}",
+                    style={"color": "#e67e22"},
+                )
+            )
+        status_element = html.Div(status_children)
+
+    return cards, last_update, status_element
+
 
 
 def get_proxmox_layout() -> html.Div:
     poll_seconds = int(getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20))
-    refresh_ms = max(5_000, poll_seconds * 1000)
+    refresh_ms = max(1_000, poll_seconds * 1000)
+
+    initial_cards, initial_last_update, initial_status = _render_proxmox_snapshot(
+        DEFAULT_VIEW != "classic"
+    )
 
     return html.Div(
         children=[
@@ -469,11 +711,13 @@ def get_proxmox_layout() -> html.Div:
                 id="proxmox-last-update",
                 className="info-message",
                 style={"textAlign": "center", "marginBottom": "12px"},
+                children=initial_last_update,
             ),
             html.Div(
                 id="proxmox-status-message",
                 className="info-message",
                 style={"textAlign": "center", "marginBottom": "16px"},
+                children=initial_status,
             ),
             html.Div(
                 className="proxmox-toolbar",
@@ -482,14 +726,14 @@ def get_proxmox_layout() -> html.Div:
                     html.Div(
                         className="proxmox-toggle-wrapper",
                         children=[
-                            html.Span("Clásico", className="proxmox-toggle-option"),
+                            html.Span("Clasico", className="proxmox-toggle-option"),
                             daq.ToggleSwitch(
                                 id="proxmox-view-switch",
                                 value=(DEFAULT_VIEW != "classic"),
                                 persistence=True,
                                 persistence_type="session",
                             ),
-                            html.Span("Histórico", className="proxmox-toggle-option"),
+                            html.Span("Historico", className="proxmox-toggle-option"),
                         ],
                     ),
                 ],
@@ -497,11 +741,7 @@ def get_proxmox_layout() -> html.Div:
             html.Div(
                 id="proxmox-cards",
                 className="proxmox-grid",
-                children=[
-                    _build_placeholder_card(
-                        "Sin datos disponibles. Esperando la primera actualizacion..."
-                    )
-                ],
+                children=initial_cards,
             ),
             dcc.Interval(id="proxmox-interval", interval=refresh_ms, n_intervals=0),
         ]
@@ -515,82 +755,10 @@ def register_proxmox_callbacks(app: dash.Dash) -> None:
         Output("proxmox-status-message", "children"),
         Input("proxmox-interval", "n_intervals"),
         Input("proxmox-view-switch", "value"),
+        Input("url", "pathname"),
     )
-    def update_proxmox_cards(_n: int, view_toggle: Any):
-        data = load_observar()
-        prox = data.get("proxmox_estado", {}) if isinstance(data, dict) else {}
-
-        try:
-            app.logger.info("Proxmox callback payload: %s", prox)
-        except Exception:
-            pass
-
-        ts = prox.get("ts") if isinstance(prox, dict) else None
-        vms = prox.get("vms") if isinstance(prox, dict) else []
-        missing = prox.get("missing") if isinstance(prox, dict) else []
-        error = prox.get("error") if isinstance(prox, dict) else None
-
-        history_map, history_meta = proxmox_history.load_history_for_dashboard()
-        if not isinstance(vms, list):
-            vms = []
-        for vm in vms:
-            if not isinstance(vm, dict):
-                continue
-            try:
-                vmid_int = int(vm.get("vmid"))
-            except Exception:
-                continue
-            history_payload = history_map.get(vmid_int)
-            if history_payload:
-                vm["history"] = history_payload.get("history", {})
-                if not vm.get("name") and history_payload.get("name"):
-                    vm["name"] = history_payload.get("name")
-
-        selected_view = DEFAULT_VIEW
-        if isinstance(view_toggle, bool):
-            selected_view = "history" if view_toggle else "classic"
-        elif isinstance(view_toggle, str):
-            selected_view = view_toggle.lower()
-        if selected_view not in {"history", "classic"}:
-            selected_view = "history"
-
-        if vms:
-            if selected_view == "classic":
-                cards = _build_classic_cards(vms)
-            else:
-                cards = _build_history_cards(vms, history_meta or {})
-        else:
-            cards = [
-                _build_placeholder_card(
-                    "Sin datos disponibles para los VMIDs configurados."
-                )
-            ]
-
-        last_update = (
-            f"Ultima actualizacion: {ts}" if ts else "Sin datos de Proxmox por el momento."
+    def update_proxmox_cards(_n: int, view_toggle: Any, _pathname: str):
+        cards, last_update, status_element = _render_proxmox_snapshot(
+            view_toggle, logger=app.logger
         )
-
-        if error:
-            status_element = html.Div(
-                "Hipervisor Proxmox no responde.",
-                style={"color": "#c0392b", "fontWeight": "600"},
-                title=str(error),
-            )
-        else:
-            status_children = [
-                html.Div(
-                    "Hipervisor Proxmox en línea.",
-                    style={"color": "#27ae60", "fontWeight": "600"},
-                )
-            ]
-            if missing:
-                missing_str = ", ".join(str(m) for m in missing)
-                status_children.append(
-                    html.Div(
-                        f"VM sin datos en la última consulta: {missing_str}",
-                        style={"color": "#e67e22"},
-                    )
-                )
-            status_element = html.Div(status_children)
-
         return cards, last_update, status_element

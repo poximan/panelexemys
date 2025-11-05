@@ -32,6 +32,7 @@ class MqttClientManager:
                 (config.MQTT_TOPIC_GRADO, 0),
                 (config.MQTT_TOPIC_GRDS, 0),
                 (config.MQTT_TOPIC_MODEM_CONEXION, 0),
+                (getattr(config, "MQTT_TOPIC_CHARO_METRICS", "charodaemon/metrics"), 0),
             ]
         self.subscriptions = subscriptions
 

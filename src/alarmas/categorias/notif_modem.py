@@ -12,7 +12,7 @@ class NotifModem:
         self.state: Dict[str, Any] = {
             'start_time': None,
             'triggered': False,
-            'description': "Alarma de ruteo de modem"
+            'description': "Router telef. puerto de escucha cerrado"
         }
         self.observar_file_path = get_observar_path()
     

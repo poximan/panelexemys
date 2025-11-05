@@ -3,8 +3,9 @@ import os
 import threading
 import time
 from werkzeug.serving import is_running_from_reloader
-from flask import request
+from flask import request, Response
 import dash
+import requests
 from .web import dash_config
 from queue import Queue
 
@@ -19,6 +20,7 @@ from src.servicios.mqtt.mqtt_client_manager import MqttClientManager
 
 from src.servicios.mqtt import mqtt_event_bus
 from src.servicios.mqtt.mqtt_rpc import MqttRequestRouter
+from src.servicios.charo.charo_monitor import CharoMonitor
 
 from src.servicios.email.estado_email import start_email_health_monitor
 from src.servicios.pve.proxmox_monitor import start_proxmox_monitor
@@ -50,12 +52,43 @@ def log_user_ip():
     if ip_addr != '127.0.0.1':
         logger_app.log(f"Solicitud HTTP de la IP: {ip_addr} para la ruta: {request.path}", origen="APP/HTTP")
 
+
+@server.route("/repohttp/", defaults={"path": ""})
+@server.route("/repohttp/<path:path>")
+def proxy_repohttp(path: str):
+    """
+    Proxy interno: expone repohttp únicamente a través de panelexemys.
+    """
+    base_url = "http://repohttp:8080"
+    url = f"{base_url}/{path}"
+    if request.query_string:
+        query = request.query_string.decode("utf-8", errors="ignore")
+        url = f"{url}?{query}"
+    try:
+        proxied = requests.get(url, timeout=5)
+    except requests.RequestException as exc:
+        try:
+            logger_app.log(f"Fallo consultando repohttp ({url}): {exc}", origen="APP/HTTP")
+        except Exception:
+            pass
+        return Response("Repositorio HTTP no disponible", status=502, mimetype="text/plain")
+
+    headers = {
+        key: value
+        for key, value in proxied.headers.items()
+        if key.lower() not in {"content-encoding", "transfer-encoding", "connection"}
+    }
+    return Response(proxied.content, status=proxied.status_code, headers=headers)
+
 # cola de mensajes y cliente mqtt
 message_queue = Queue()
 mqtt_client_manager = MqttClientManager(logger_app, message_queue)
 
 # exponer manager al event bus de publicaciones
 mqtt_event_bus.set_manager(mqtt_client_manager)
+
+# monitor charo-daemon (charito)
+charo_monitor = CharoMonitor(logger_app, mqtt_client_manager)
 
 # router rpc mqtt (suscribe y procesa requests en la cola)
 rpc_router = MqttRequestRouter(logger_app, mqtt_client_manager, message_queue)

@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 # -------------------------
 
 _OBSERVAR_LOCK = threading.RLock()
+_CHARO_LOCK = threading.RLock()
 
 def get_project_root() -> str:
     """
@@ -34,6 +35,12 @@ def get_observar_path() -> str:
     retorna la ruta absoluta a observar.json en src/servicios/observar.json
     """
     return os.path.join(get_servicios_dir(), "observar.json")
+
+def get_charo_state_path() -> str:
+    """
+    retorna la ruta absoluta a charo.json dentro de data/
+    """
+    return os.path.join(get_data_dir(), "charo.json")
 
 # -------------------------
 # helpers json genericos
@@ -108,3 +115,21 @@ def update_observar_key(key: str, value: Any) -> bool:
         data = _load_json_file(path)
         data[key] = value
         return _save_json_file(path, data)
+
+# -------------------------
+# api especifica charo.json
+# -------------------------
+
+def load_charo_state() -> Dict[str, Any]:
+    """
+    retorna el contenido de charo.json como dict
+    """
+    with _CHARO_LOCK:
+        return _load_json_file(get_charo_state_path())
+
+def save_charo_state(data: Dict[str, Any]) -> bool:
+    """
+    persiste el estado completo en charo.json
+    """
+    with _CHARO_LOCK:
+        return _save_json_file(get_charo_state_path(), data)

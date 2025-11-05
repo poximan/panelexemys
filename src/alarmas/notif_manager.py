@@ -62,7 +62,7 @@ class NotifManager:
             self._send_notification_and_log(subject, body, config.ALARM_EMAIL_RECIPIENT)
 
         if self.modem_notifier.evaluate_condition():
-            subject = "Alarma de ruteo de modem"
+            subject = "Router telef. puerto de escucha cerrado"
             body = (
                 f"El modem del ruteo ha estado desconectado por mas de "
                 f"{config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Tuple
 
 import requests
@@ -138,7 +138,9 @@ def _build_snapshot(
     missing: List[int] = []
     updated_counters: Dict[int, Tuple[float, float]] = {}
 
-    for vmid in vm_ids:
+    ids_to_process: List[int] = [int(v) for v in vm_ids] if list(vm_ids) else list(vm_by_id.keys())
+
+    for vmid in ids_to_process:
         raw = vm_by_id.get(int(vmid))
         if not raw:
             missing.append(int(vmid))
@@ -154,6 +156,7 @@ def _build_snapshot(
         raw_disk_write = float(raw.get("diskwrite") or 0.0)
         disk_error: str | None = None
         status_data: Dict[str, Any] | None = None
+        maxmem_missing = False
         try:
             status_data = _fetch_vm_status(
                 base_url=base_url,
@@ -171,10 +174,30 @@ def _build_snapshot(
                 pass
 
         if isinstance(status_data, dict):
+            mem_from_status = float(status_data.get("mem") or 0.0)
+            if mem_from_status > 0.0:
+                mem_used_raw = mem_from_status
+
+            maxmem_from_status = float(status_data.get("maxmem") or 0.0)
+            if maxmem_from_status > 0.0:
+                mem_max_raw = maxmem_from_status
+            elif mem_max_raw <= 0.0:
+                maxmem_missing = True
+
             raw_disk_used = float(status_data.get("disk") or raw_disk_used or 0.0)
             raw_disk_total = float(status_data.get("maxdisk") or raw_disk_total or 0.0)
             raw_disk_read = float(status_data.get("diskread") or raw_disk_read or 0.0)
             raw_disk_write = float(status_data.get("diskwrite") or raw_disk_write or 0.0)
+            cpu_fraction_status = status_data.get("cpu")
+            if cpu_fraction_status is not None:
+                try:
+                    cpu_fraction = float(cpu_fraction_status)
+                except (TypeError, ValueError):
+                    cpu_fraction = None
+            else:
+                cpu_fraction = None
+        else:
+            cpu_fraction = None
 
         prev_read, prev_write = prev_counters.get(int(vmid), (raw_disk_read, raw_disk_write))
         delta_read = max(0.0, raw_disk_read - prev_read)
@@ -189,13 +212,27 @@ def _build_snapshot(
 
         updated_counters[int(vmid)] = (raw_disk_read, raw_disk_write)
 
+        if maxmem_missing:
+            try:
+                logger.log(
+                    f"VM {vmid}: maxmem ausente en status/current; se informara sin total de memoria.",
+                    origen="PVE/MON",
+                )
+            except Exception:
+                pass
+
+        if cpu_fraction is not None:
+            cpu_usage_pct = round(cpu_fraction * 100.0, 2)
+        else:
+            cpu_usage_pct = round(float(raw.get("cpu") or 0.0) * 100.0, 2)
+
         snapshot.append(
             {
                 "vmid": int(raw.get("vmid")),
                 "name": raw.get("name") or f"VM-{vmid}",
                 "status": raw.get("status") or "desconocido",
                 "cpus": int(raw.get("cpus") or 0),
-                "cpu_usage_pct": round(float(raw.get("cpu") or 0.0) * 100.0, 2),
+                "cpu_usage_pct": cpu_usage_pct,
                 "mem_used_gb": _gb(mem_used_raw),
                 "mem_total_gb": _gb(mem_max_raw),
                 "mem_usage_pct": _safe_pct(mem_used_raw, mem_max_raw),
@@ -211,6 +248,26 @@ def _build_snapshot(
                 "status_detail_error": disk_error,
             }
         )
+
+    # Fallback: si no se encontro ninguna VM solicitada pero Proxmox devolvio VMs,
+    # procesar todas las VMs disponibles para evitar snapshots vacios.
+    if not snapshot and vm_by_id:
+        snapshot_fallback, missing_fb, updated_counters_fb = _build_snapshot(
+            qemu_list=qemu_list,
+            vm_ids=list(vm_by_id.keys()),
+            base_url=base_url,
+            node=node,
+            headers=headers,
+            timeout=timeout,
+            verify_ssl=verify_ssl,
+            logger=logger,
+            prev_counters=prev_counters,
+            poll_interval_seconds=poll_interval_seconds,
+        )
+        snapshot = snapshot_fallback
+        # en fallback no consideramos faltantes (se muestran las existentes)
+        missing = []
+        updated_counters.update(updated_counters_fb)
 
     snapshot.sort(key=lambda item: item["vmid"])
     missing.sort()
@@ -247,8 +304,10 @@ def _collect_status(logger: Logosaurio, prev_counters: Dict[int, Tuple[float, fl
         poll_interval_seconds=poll_interval_seconds,
     )
 
+    # Timestamp normalizado en UTC con sufijo 'Z'
+    ts_utc = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     snapshot = {
-        "ts": datetime.now().isoformat(timespec="seconds"),
+        "ts": ts_utc,
         "vms": vms,
         "missing": missing,
         "error": None,
@@ -352,8 +411,9 @@ def start_proxmox_monitor(logger: Logosaurio) -> None:
             )
             proxmox_history.update_history(snapshot, poll_seconds=poll_seconds, hours=history_hours)
         except Exception as exc:  # pragma: no cover - monitoreo defensivo
+            ts_utc = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
             snapshot = {
-                "ts": datetime.now().isoformat(timespec="seconds"),
+                "ts": ts_utc,
                 "vms": [],
                 "missing": list(getattr(config, "PVE_VHOST_IDS", [101, 102])),
                 "error": str(exc),
