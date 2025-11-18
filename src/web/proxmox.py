@@ -1,6 +1,8 @@
 ﻿import dash
+import os
 from dash import dcc, html
 from dash.dependencies import Input, Output
+import dash
 import dash_daq as daq
 import plotly.graph_objects as go
 from datetime import datetime, timezone
@@ -8,8 +10,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 from datetime import timedelta
 
-from src.utils.paths import load_observar
-from src.servicios.pve import proxmox_history
+from src.web.clients.proxmox_client import ProxmoxClient
 import config
 
 
@@ -159,11 +160,18 @@ def _format_rate_per_second(value: Any) -> str:
     return f"{rate:.1f} {units[idx]}"
 
 
-def _build_disk_section(
-    disk_total: Any,
-    disk_read_rate: Any,
-    disk_write_rate: Any,
-) -> html.Div:
+
+def _format_bytes(value: Any) -> str:
+    total = _safe_float(value)
+    if total <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    idx = 0
+    while total >= 1024 and idx < len(units) - 1:
+        total /= 1024.0
+        idx += 1
+    return f"{total:.1f} {units[idx]}"
+def _build_disk_section(disk_total: Any, disk_read_bytes: Any, disk_write_bytes: Any) -> html.Div:
     return html.Div(
         className="proxmox-disk-section",
         children=[
@@ -179,7 +187,7 @@ def _build_disk_section(
                         children=[
                             html.Span("Lectura ", className="proxmox-disk-io-label"),
                             html.Span(
-                                _format_rate_per_second(disk_read_rate),
+                                _format_bytes(disk_read_bytes),
                                 className="proxmox-disk-io-value",
                             ),
                         ],
@@ -189,7 +197,7 @@ def _build_disk_section(
                         children=[
                             html.Span("Escritura ", className="proxmox-disk-io-label"),
                             html.Span(
-                                _format_rate_per_second(disk_write_rate),
+                                _format_bytes(disk_write_bytes),
                                 className="proxmox-disk-io-value",
                             ),
                         ],
@@ -319,8 +327,8 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
         mem_used = vm.get("mem_used_gb")
         mem_total = vm.get("mem_total_gb")
         disk_total = vm.get("disk_total_gb")
-        disk_read_rate = vm.get("disk_read_rate_bps")
-        disk_write_rate = vm.get("disk_write_rate_bps")
+        disk_read_bytes = vm.get("disk_read_bytes")
+        disk_write_bytes = vm.get("disk_write_bytes")
         warning = vm.get("status_detail_error")
         history_payload = vm.get("history") or {}
         meta_text = f"vCPUs: {cpus} - Uptime: {uptime}"
@@ -388,7 +396,7 @@ def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]
                                 className="proxmox-history-grid",
                                 children=charts,
                             ),
-                            _build_disk_section(disk_total, disk_read_rate, disk_write_rate),
+                            _build_disk_section(disk_total, disk_read_bytes, disk_write_bytes),
                         ],
                     ),
                     (
@@ -414,15 +422,17 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
         status_text = str(status_raw).upper()
         status_colors = _status_colors(status_raw)
         uptime = vm.get("uptime_human", "0m")
-        cpu_pct_value = _clamp_pct(vm.get("cpu_usage_pct"))
-        cpu_pct_display = _format_pct(vm.get("cpu_usage_pct"))
+        # pve-service provides 'cpu_pct' (0..100); keep backward compatibility
+        cpu_value_raw = vm.get("cpu_usage_pct") if vm.get("cpu_usage_pct") is not None else vm.get("cpu_pct")
+        cpu_pct_value = _clamp_pct(cpu_value_raw)
+        cpu_pct_display = _format_pct(cpu_value_raw)
         warning = vm.get("status_detail_error")
         cpus = vm.get("cpus", "N/D")
         mem_used = vm.get("mem_used_gb")
         mem_total = vm.get("mem_total_gb")
         disk_total = vm.get("disk_total_gb")
-        disk_read_rate = vm.get("disk_read_rate_bps")
-        disk_write_rate = vm.get("disk_write_rate_bps")
+        disk_read_bytes = vm.get("disk_read_bytes")
+        disk_write_bytes = vm.get("disk_write_bytes")
         meta_text = f"vCPUs: {cpus} - Uptime: {uptime}"
 
         gauge_value = max(0, min(100, cpu_pct_value))
@@ -539,7 +549,7 @@ def _build_classic_cards(vms: List[Dict[str, Any]]) -> List[html.Div]:
                                     ),
                                 ],
                             ),
-                            _build_disk_section(disk_total, disk_read_rate, disk_write_rate),
+                            _build_disk_section(disk_total, disk_read_bytes, disk_write_bytes),
                         ],
                     ),
                     (
@@ -586,21 +596,23 @@ def _latest_history_timestamp(history_map: Dict[int, Dict[str, Any]]) -> Optiona
 
 
 def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = None):
-    data = load_observar()
-    prox = data.get("proxmox_estado", {}) if isinstance(data, dict) else {}
-
-    if logger is not None:
-        try:
-            logger.info("Proxmox callback payload: %s", prox)
-        except Exception:
-            pass
+    client = ProxmoxClient(os.getenv("PVE_API_BASE", "http://pve-service:8083"))
+    try:
+        prox = client.get_state()
+    except Exception:
+        prox = {}
 
     ts = prox.get("ts") if isinstance(prox, dict) else None
     vms = prox.get("vms") if isinstance(prox, dict) else []
     missing = prox.get("missing") if isinstance(prox, dict) else []
     error = prox.get("error") if isinstance(prox, dict) else None
 
-    history_map, history_meta = proxmox_history.load_history_for_dashboard()
+    try:
+        hist = client.get_history()
+        history_map = hist.get("vms", {}) if isinstance(hist, dict) else {}
+        history_meta = hist.get("meta", {}) if isinstance(hist, dict) else {}
+    except Exception:
+        history_map, history_meta = {}, {}
     if not isinstance(vms, list):
         vms = []
     for vm in vms:
@@ -610,7 +622,8 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
             vmid_int = int(vm.get("vmid"))
         except Exception:
             continue
-        history_payload = history_map.get(vmid_int)
+        # history_map keys may come as strings over HTTP JSON; try both
+        history_payload = history_map.get(vmid_int) or history_map.get(str(vmid_int))
         if history_payload:
             vm["history"] = history_payload.get("history", {})
             if not vm.get("name") and history_payload.get("name"):
@@ -726,7 +739,7 @@ def get_proxmox_layout() -> html.Div:
                     html.Div(
                         className="proxmox-toggle-wrapper",
                         children=[
-                            html.Span("Clasico", className="proxmox-toggle-option"),
+                            html.Span("En vivo", className="proxmox-toggle-option"),
                             daq.ToggleSwitch(
                                 id="proxmox-view-switch",
                                 value=(DEFAULT_VIEW != "classic"),
@@ -762,3 +775,11 @@ def register_proxmox_callbacks(app: dash.Dash) -> None:
             view_toggle, logger=app.logger
         )
         return cards, last_update, status_element
+
+
+
+
+
+
+
+

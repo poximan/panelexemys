@@ -11,6 +11,7 @@ from src.utils.paths import load_observar_key, update_observar_key
 
 message_queue: Queue | None = None
 mqtt_client_manager = None
+_auto_start_enabled = True
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS_FILE = os.path.join(SCRIPT_DIR, 'estado_broker.txt')  # reservado si querés persistir algo
@@ -128,36 +129,43 @@ def get_broker_layout():
     ])
 
 
-def initialize_broker_components(manager, queue):
+def initialize_broker_components(manager, queue, auto_start=True):
     """
     Inyecta referencias compartidas. Si el manager expone set_message_queue/msg_queue,
     se fuerza a que comparta la misma cola que esta vista.
     """
-    global mqtt_client_manager, message_queue
+    global mqtt_client_manager, message_queue, _auto_start_enabled
     mqtt_client_manager = manager
     message_queue = queue
+    _auto_start_enabled = bool(auto_start)
+
+    if mqtt_client_manager is None:
+        return
 
     try:
-        if mqtt_client_manager is not None:
-            if hasattr(mqtt_client_manager, 'set_message_queue'):
-                mqtt_client_manager.set_message_queue(message_queue)
-            elif hasattr(mqtt_client_manager, 'msg_queue'):
-                mqtt_client_manager.msg_queue = message_queue
-            desired = bool(load_observar_key("broker_conectar", True))
-            if desired:
-                threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
-            else:
-                try:
-                    mqtt_client_manager.stop()
-                except Exception:
-                    pass
+        if hasattr(mqtt_client_manager, 'set_message_queue'):
+            mqtt_client_manager.set_message_queue(message_queue)
+        elif hasattr(mqtt_client_manager, 'msg_queue'):
+            mqtt_client_manager.msg_queue = message_queue
+
+        if not _auto_start_enabled:
+            return
+
+        desired = bool(load_observar_key("broker_conectar", True))
+        if desired:
+            threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
+        else:
+            try:
+                mqtt_client_manager.stop()
+            except Exception:
+                pass
     except Exception:
         pass
 
 
 def _ensure_connected():
     """Si no está conectado, dispara reconnect en un thread para no bloquear Dash."""
-    if mqtt_client_manager is None:
+    if mqtt_client_manager is None or not _auto_start_enabled:
         return False
     desired = bool(load_observar_key("broker_conectar", True))
     if not desired:
@@ -186,6 +194,8 @@ def register_broker_callbacks(app: dash.Dash):
             pass
 
         if mqtt_client_manager is None:
+            return dash.no_update
+        if not _auto_start_enabled:
             return dash.no_update
 
         if is_enabled:

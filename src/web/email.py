@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import time
 import dash
@@ -13,7 +13,7 @@ import config
 
 def get_email_layout() -> html.Div:
     """
-    Retorna el layout HTML para la página de monitoreo y pruebas de correo.
+    Retorna el layout HTML para la pÃ¡gina de monitoreo y pruebas de correo.
     """
     return html.Div(
         children=[
@@ -94,7 +94,7 @@ def get_email_layout() -> html.Div:
     )
 
 
-def register_email_callbacks(app: dash.Dash) -> None:
+def register_email_callbacks(app: dash.Dash, key) -> None:
     """
     Registra callbacks encargados de la prueba y el monitoreo del servidor de correo.
     """
@@ -117,7 +117,14 @@ def register_email_callbacks(app: dash.Dash) -> None:
         )
 
         try:
-            client = MensageloClient()
+            client = MensageloClient(
+                base_url=config.MENSAGELO_BASE_URL,
+                api_key=key,
+                timeout_seconds=int(config.MENSAGELO_TIMEOUT_SECONDS),
+                max_retries=int(config.MENSAGELO_MAX_RETRIES),
+                backoff_initial=float(config.MENSAGELO_BACKOFF_INITIAL),
+                backoff_max=float(config.MENSAGELO_BACKOFF_MAX),
+            )
             ok, msg = client.enqueue_email(
                 recipients=test_recipient,
                 subject=prefixed_subject,
@@ -126,7 +133,6 @@ def register_email_callbacks(app: dash.Dash) -> None:
             )
         except Exception as exc:  # pragma: no cover - logging defensivo
             ok, msg = False, f"error al contactar mensagelo: {exc}"
-
         try:
             mqtt_event_bus.publish_email_event(
                 subject=prefixed_subject,
@@ -187,3 +193,5 @@ def register_email_callbacks(app: dash.Dash) -> None:
         ping_remoto = estados.get("ping_remoto", "desconocido")
 
         return smtp, ping_local, ping_remoto
+
+

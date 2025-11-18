@@ -1,7 +1,11 @@
+import json
 import queue
+from datetime import datetime, timezone
 from typing import Callable, List, Tuple, Optional
-from .mqtt_driver import MqttDriver
+
 import config
+from .mqtt_driver import MqttDriver
+
 
 class MqttClientManager:
     """
@@ -10,31 +14,26 @@ class MqttClientManager:
     - Expone publish() para UI (broker_view) con QoS/retain que le pida la UI.
     """
 
-    def __init__(self, logger, subscriptions: Optional[List[Tuple[str, int]]] = None):
+    def __init__(self, logger):
         self.log = logger
         self._origen = "OBS/MQTT"
 
         # Crear driver
         self.driver = MqttDriver(logger=self.log)
+        self._status_topic = getattr(config, "MQTT_SERVICE_STATUS_TOPIC", None)
+        self._status_qos = getattr(config, "MQTT_SERVICE_STATUS_QOS", 1)
+        self._status_retain = getattr(config, "MQTT_SERVICE_STATUS_RETAIN", True)
 
         # Mensajes entrantes: por defecto una cola nueva
         self.msg_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
         self._listeners: List[Tuple[str, Callable[[str, str], None]]] = []
 
-        # Si erróneamente nos pasan una Queue en 'subscriptions', la tomamos como msg_queue
-        if isinstance(subscriptions, queue.Queue):
-            self.msg_queue = subscriptions
-            subscriptions = None
-
-        # Suscripciones por defecto (si no se dieron) — TODO desde config
-        if subscriptions is None:
-            subscriptions = [
-                (config.MQTT_TOPIC_GRADO, 0),
-                (config.MQTT_TOPIC_GRDS, 0),
-                (config.MQTT_TOPIC_MODEM_CONEXION, 0),
-                (getattr(config, "MQTT_TOPIC_CHARO_METRICS", "charodaemon/metrics"), 0),
-            ]
-        self.subscriptions = subscriptions
+        # Suscripciones por defecto (si no se dieron) - TODO desde config
+        self.subscriptions = [
+            (config.MQTT_TOPIC_GRADO, 0),
+            (config.MQTT_TOPIC_GRDS, 0),
+            (config.MQTT_TOPIC_MODEM_CONEXION, 0),
+        ]
 
         # Registrar callbacks del driver hacia metodos del manager
         self.driver.register_on_connect(self._on_driver_connect)
@@ -53,27 +52,12 @@ class MqttClientManager:
         if not ok:
             self.log.log("MQTT Client Manager: No se pudo establecer conexion inicial.", origen=self._origen)
             return False
-
-        # Publica estado inicial si corresponde (online)
-        online_topic = getattr(config, "MQTT_ONLINE_TOPIC", None)
-        online_payload = getattr(config, "MQTT_ONLINE_PAYLOAD", "online")
-        online_qos = int(getattr(config, "MQTT_ONLINE_QOS", 1))
-        online_retain = bool(getattr(config, "MQTT_ONLINE_RETAIN", True))
-        if online_topic:
-            self.driver.publish(online_topic, online_payload, qos=online_qos, retain=online_retain)
-
         self._started = True
         self.log.log("MQTT Client Manager: Conexion establecida correctamente.", origen=self._origen)
         return True
 
     def stop(self):
-        offline_topic = getattr(config, "MQTT_OFFLINE_TOPIC", None)
-        offline_payload = getattr(config, "MQTT_OFFLINE_PAYLOAD", "offline")
-        offline_qos = int(getattr(config, "MQTT_OFFLINE_QOS", 1))
-        offline_retain = bool(getattr(config, "MQTT_OFFLINE_RETAIN", True))
-        if offline_topic and self.driver.is_connected():
-            self.driver.publish(offline_topic, offline_payload, qos=offline_qos, retain=offline_retain)
-
+        self._publish_status(False, "shutdown")
         self.driver.disconnect()
         self._started = False
 
@@ -85,10 +69,11 @@ class MqttClientManager:
                 self.driver.subscribe(topic, qos)
         except TypeError:
             self.log.log("MQTT Client Manager: subscriptions no es iterable en _on_driver_connect.", origen=self._origen)
+        self._publish_status(True, "connect")
 
     def _on_driver_disconnect(self, client, userdata, rc):
-        # paho maneja reconexiones desde MqttDriver
-        pass
+        if rc != 0:
+            self._publish_status(False, f"connection_lost_rc{rc}")
 
     def _on_driver_message(self, client, userdata, msg):
         # Decodificar y encolar el mensaje para el resto del sistema
@@ -131,10 +116,10 @@ class MqttClientManager:
 
     def get_connection_status(self) -> str:
         if self.driver.is_connected():
-            return 'conectado'
+            return "conectado"
         if self._started:
-            return 'conectando'
-        return 'desconectado'
+            return "conectando"
+        return "desconectado"
 
     def set_message_queue(self, q: "queue.Queue[Tuple[str,str]]"):
         if isinstance(q, queue.Queue):
@@ -148,3 +133,22 @@ class MqttClientManager:
         if not callable(callback):
             raise ValueError("callback debe ser invocable")
         self._listeners.append((prefix, callback))
+
+    def _publish_status(self, online: bool, reason: str) -> None:
+        if not self._status_topic:
+            return
+        payload = {
+            "status": "online" if online else "offline",
+            "reason": reason,
+            "ts": datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+            "source": "panelexemys",
+        }
+        try:
+            self.driver.publish(
+                self._status_topic,
+                json.dumps(payload, ensure_ascii=False),
+                qos=self._status_qos,
+                retain=self._status_retain,
+            )
+        except Exception as exc:
+            self.log.log(f"No se pudo publicar estado del servicio: {exc}", origen=self._origen)

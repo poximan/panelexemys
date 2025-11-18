@@ -3,8 +3,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
 from datetime import datetime
-from src.persistencia.dao.dao_historicos import historicos_dao as dao
-from src.persistencia.dao.dao_grd import grd_dao
+from src.web.clients.modbus_client import modbus_client
 
 def get_kpi_panel_layout():
     """
@@ -60,7 +59,11 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
         Input('interval-component', 'n_intervals')
     )
     def update_kpi_panel(n_intervals):
-        latest_states_from_db = dao.get_latest_states_for_all_grds()
+        try:
+            summary = modbus_client.get_summary()
+        except Exception:
+            summary = {"summary": {"porcentaje": 0, "total": 0, "conectados": 0}, "disconnected": [], "states": {}}
+        latest_states_from_db = summary.get("states", {})
 
         total_grds_for_kpi = len(latest_states_from_db)
         connected_grds_count = sum(1 for state in latest_states_from_db.values() if state == 1)
@@ -109,13 +112,16 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
         else:
             red_style['backgroundColor'] = '#dc3545'
 
-        disconnected_grds_data = dao.get_all_disconnected_grds()
+        disconnected_grds_data = summary.get("disconnected", [])
 
         disconnected_table_rows = []
         if disconnected_grds_data:
             
             current_time = datetime.now() # Get current time once for efficiency
-            grds_map = grd_dao.get_all_grds_with_descriptions()
+            try:
+                grds_map = modbus_client.get_descriptions()
+            except Exception:
+                grds_map = {}
 
             for item in disconnected_grds_data:
                 timestamp_obj = item.get('last_disconnected_timestamp')
@@ -125,12 +131,23 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                 if isinstance(timestamp_obj, datetime):
                     timestamp_str = timestamp_obj.strftime("%Y-%m-%d %H:%M:%S")
                     time_difference = current_time - timestamp_obj
+                else:
+                    ts_value = item.get("last_disconnected_timestamp")
+                    if isinstance(ts_value, str):
+                        try:
+                            ts_dt = datetime.fromisoformat(ts_value)
+                            timestamp_str = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+                            time_difference = current_time - ts_dt
+                        except Exception:
+                            time_difference = None
+                    else:
+                        time_difference = None
                     # Calculate difference in minutes and format it nicely
+                if time_difference:
                     total_seconds = int(time_difference.total_seconds())
                     minutes = total_seconds // 60
                     hours = minutes // 60
                     days = hours // 24
-
                     if days > 0:
                         time_disconnected_minutes = f"{days}d {hours % 24}h {minutes % 60}m"
                     elif hours > 0:
@@ -138,7 +155,7 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                     else:
                         time_disconnected_minutes = f"{minutes}m"
 
-                grd_description = grds_map.get(item['id_grd'])
+                grd_description = grds_map.get(item.get('id_grd'))
                 display_name = f"GRD {item['id_grd']} ({grd_description})" if grd_description else f"GRD {item['id_grd']}"
 
                 disconnected_table_rows.append(

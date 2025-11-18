@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 from typing import List
 from src.logger import Logosaurio
 from ..servicios.mqtt import mqtt_event_bus as bus
@@ -7,9 +7,9 @@ from .categorias.notif_nodo import NotifNodo
 from .categorias.notif_modem import NotifModem
 from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
 from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
-from src.persistencia.dao.dao_historicos import historicos_dao
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.utils.paths import load_observar_key
+from src.web.clients.modbus_client import modbus_client
 import config
 
 class NotifManager:
@@ -20,22 +20,29 @@ class NotifManager:
     - Publica evento en MQTT
     - Registra en DB local el intento de envio
     """
-    def __init__(self, logger: Logosaurio, excluded_grd_ids: set):
+    def __init__(self, logger: Logosaurio, excluded_grd_ids: set, key):
         self.logger = logger
         self.global_notifier = NotifGlobal(logger)
         self.nodo_notifier = NotifNodo(logger, excluded_grd_ids)
         self.modem_notifier = NotifModem(logger)
         self.proxmox_host_notifier = NotifProxmoxHost(logger)
         self.proxmox_vm_notifier = NotifProxmoxVm(logger)
-        self.mail_client = MensageloClient()
+        self._mail_client = MensageloClient(
+            base_url=config.MENSAGELO_BASE_URL,
+            api_key=key,
+            timeout_seconds=int(config.MENSAGELO_TIMEOUT_SECONDS),
+            max_retries=int(config.MENSAGELO_MAX_RETRIES),
+            backoff_initial=float(config.MENSAGELO_BACKOFF_INITIAL),
+            backoff_max=float(config.MENSAGELO_BACKOFF_MAX)
+            )
 
     def run_alarm_processing(self):
-        latest = historicos_dao.get_latest_states_for_all_grds()
-        total = len(latest)
-        conectados = sum(1 for v in latest.values() if v == 1)
-        connection_percentage = (conectados / total) * 100 if total > 0 else 0
-
-        disconnected = historicos_dao.get_all_disconnected_grds()
+        try:
+            summary = modbus_client.get_summary()
+        except Exception:
+            summary = {"summary": {"porcentaje": 0}, "disconnected": []}
+        connection_percentage = summary.get("summary", {}).get("porcentaje", 0)
+        disconnected = summary.get("disconnected", [])
         self._process_alarms(connection_percentage, disconnected)
         proxmox_snapshot = load_observar_key("proxmox_estado", {})
         self._process_proxmox_alarms(proxmox_snapshot)
@@ -131,3 +138,4 @@ class NotifManager:
 
         # Evento SOLO a 'estado/email' (no retain)
         bus.publish_email_event(subject, ok)
+

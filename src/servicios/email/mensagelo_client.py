@@ -1,8 +1,7 @@
-import json
+﻿import json
 import time
-from typing import List, Optional, Tuple
+from typing import List, Tuple, Optional
 import requests
-import config
 
 class MensageloError(Exception):
     pass
@@ -14,19 +13,13 @@ class MensageloClient:
     El exito se define como "pedido tomado" (HTTP 202 y ok=true, queued=true).
     """
 
-    def __init__(self,
-                 base_url: Optional[str] = None,
-                 api_key: Optional[str] = None,
-                 timeout_seconds: Optional[int] = None,
-                 max_retries: Optional[int] = None,
-                 backoff_initial: Optional[float] = None,
-                 backoff_max: Optional[float] = None):
-        self.base_url = (base_url or config.MENSAGELO_BASE_URL).rstrip("/")
-        self.api_key = api_key or config.MENSAGELO_API_KEY
-        self.timeout = timeout_seconds or int(config.MENSAGELO_TIMEOUT_SECONDS)
-        self.max_retries = max_retries if max_retries is not None else int(config.MENSAGELO_MAX_RETRIES)
-        self.backoff_initial = backoff_initial if backoff_initial is not None else float(config.MENSAGELO_BACKOFF_INITIAL)
-        self.backoff_max = backoff_max if backoff_max is not None else float(config.MENSAGELO_BACKOFF_MAX)
+    def __init__(self, base_url: str, api_key: str, timeout_seconds: int, max_retries: int, backoff_initial: float, backoff_max: float):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.timeout = int(timeout_seconds)
+        self.max_retries = int(max_retries)
+        self.backoff_initial = float(backoff_initial)
+        self.backoff_max = float(backoff_max)
 
         self._send_async_url = f"{self.base_url}/send_async"
         self._headers = {
@@ -102,3 +95,4 @@ class MensageloClient:
                 except Exception:
                     err = resp.text
                 return False, f"error http {resp.status_code}: {err}"
+

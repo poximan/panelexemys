@@ -2,8 +2,9 @@ import dash
 from dash import dcc, html
 from queue import Queue
 from dash.dependencies import Input, Output
-from src.persistencia.dao.dao_grd import grd_dao
+from src.web.clients.modbus_client import modbus_client
 import config
+import os
 
 from src.web.dashboard.middleware_dash import get_dashboard, register_dashboard_callbacks
 from src.web.dashboard.middleware_kpi import register_kpi_panel_callbacks
@@ -20,18 +21,26 @@ from src.web.broker.broker_view import (
 from src.web.proxmox import get_proxmox_layout, register_proxmox_callbacks
 from src.web.charito import get_charito_layout, register_charito_callbacks
 
-
+api_key = os.getenv("API_KEY")
 BASE = "/dash"
 
 
-def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue) -> None:
+def configure_dash_app(
+    app: dash.Dash,
+    mqtt_client_manager,
+    message_queue: Queue,
+    auto_start_mqtt: bool = True,
+) -> None:
     """
     Configura el layout y los callbacks de la aplicación Dash para una estructura SPA.
     """
-    db_grd_descriptions = grd_dao.get_all_grds_with_descriptions()
-    initial_grd_value = list(db_grd_descriptions.keys())[0] if db_grd_descriptions else None
+    try:
+        db_grd_descriptions = modbus_client.get_descriptions()
+    except Exception:
+        db_grd_descriptions = {}
+    initial_grd_value = next(iter(db_grd_descriptions), None)
 
-    initialize_broker_components(mqtt_client_manager, message_queue)
+    initialize_broker_components(mqtt_client_manager, message_queue, auto_start=auto_start_mqtt)
 
     dashboard_layout = get_dashboard(db_grd_descriptions, initial_grd_value)
     reles_micom_layout = get_reles_micom_layout()
@@ -87,7 +96,7 @@ def configure_dash_app(app: dash.Dash, mqtt_client_manager, message_queue: Queue
     register_main_data_table_callbacks(app)
     register_reles_micom_callbacks(app)
     register_mantenimiento_callbacks(app)
-    register_email_callbacks(app)
+    register_email_callbacks(app, api_key)
     register_broker_callbacks(app)
     register_proxmox_callbacks(app)
     register_charito_callbacks(app)

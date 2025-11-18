@@ -2,10 +2,7 @@ from dash import html, dcc, no_update, dash_table
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
 from datetime import datetime
-from src.persistencia.dao.dao_reles import reles_dao
-from src.persistencia.dao.dao_fallas_reles import fallas_reles_dao
-from src.utils.paths import update_observar_key, load_observar_key
-
+from src.web.clients.modbus_client import modbus_client
 import config
 
 def get_reles_micom_layout():
@@ -13,7 +10,10 @@ def get_reles_micom_layout():
     layout de la pestaña Reles MiCOM con switch de observacion y tabla de fallas
     """
 
-    initial_on = bool(load_observar_key("reles_consultar", False))
+    try:
+        initial_on = bool(modbus_client.get_reles_observer())
+    except Exception:
+        initial_on = False
 
     return html.Div(children=[
         html.H1("Estado Reles MiCOM", className='main-title'),
@@ -55,9 +55,9 @@ def register_reles_micom_callbacks(app):
         persiste bandera reles_consultar en observar.json
         """
         try:
-            update_observar_key("reles_consultar", bool(is_observing))
+            modbus_client.set_reles_observer(bool(is_observing))
         except Exception:
-            pass
+            return no_update
         return no_update
 
     @app.callback(
@@ -72,57 +72,60 @@ def register_reles_micom_callbacks(app):
 
         fault_tables = []
 
-        active_reles = reles_dao.get_all_reles_with_descriptions()
+        try:
+            reles_payload = modbus_client.get_reles_faults()
+        except Exception:
+            reles_payload = {"items": []}
+        active_items = reles_payload.get("items", [])
 
-        if not active_reles:
+        if not active_items:
             return html.P("No hay reles activos configurados o con descripcion 'NO APLICA'.", className="text-gray-600 mt-4")
 
-        for modbus_id, description in active_reles.items():
-            internal_rele_id = reles_dao.get_internal_id_by_modbus_id(modbus_id)
+        for item in active_items:
+            modbus_id = item.get("id_modbus")
+            description = item.get("description")
+            latest_falla = item.get("latest") or {}
 
-            if internal_rele_id is not None:
-                latest_falla = fallas_reles_dao.get_latest_falla_for_rele(internal_rele_id)
+            formatted_timestamp = latest_falla.get('timestamp')
+            if isinstance(formatted_timestamp, str):
+                try:
+                    dt_object = datetime.fromisoformat(formatted_timestamp)
+                    formatted_timestamp = dt_object.strftime('%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError):
+                    pass
 
-                if latest_falla:
-                    formatted_timestamp = latest_falla['timestamp']
-                    try:
-                        dt_object = datetime.fromisoformat(latest_falla['timestamp'])
-                        formatted_timestamp = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                    except (ValueError, TypeError):
-                        pass
+            data_for_table = [
+                {"Atributo": "ID Modbus", "Valor": modbus_id},
+                {"Atributo": "Descripcion", "Valor": description},
+                {"Atributo": "Numero de Falla", "Valor": latest_falla.get('numero_falla')},
+                {"Atributo": "Fecha/Hora", "Valor": formatted_timestamp},
+                {"Atributo": "Corriente Fase A", "Valor": latest_falla.get('fasea_corr')},
+                {"Atributo": "Corriente Fase B", "Valor": latest_falla.get('faseb_corr')},
+                {"Atributo": "Corriente Fase C", "Valor": latest_falla.get('fasec_corr')},
+                {"Atributo": "Corriente Tierra", "Valor": latest_falla.get('tierra_corr')},
+            ]
 
-                    data_for_table = [
-                        {"Atributo": "ID Modbus", "Valor": modbus_id},
-                        {"Atributo": "Descripcion", "Valor": description},
-                        {"Atributo": "Numero de Falla", "Valor": latest_falla['numero_falla']},
-                        {"Atributo": "Fecha/Hora", "Valor": formatted_timestamp},
-                        {"Atributo": "Corriente Fase A", "Valor": latest_falla['fasea_corr']},
-                        {"Atributo": "Corriente Fase B", "Valor": latest_falla['faseb_corr']},
-                        {"Atributo": "Corriente Fase C", "Valor": latest_falla['fasec_corr']},
-                        {"Atributo": "Corriente Tierra", "Valor": latest_falla['tierra_corr']},
-                    ]
-
-                    fault_tables.append(
-                        html.Div([
-                            dash_table.DataTable(
-                                id=f'falla-table-{modbus_id}',
-                                columns=[
-                                    {"name": "Atributo", "id": "Atributo"},
-                                    {"name": "Valor", "id": "Valor"}
-                                ],
-                                data=data_for_table,
-                                style_table={'overflowX': 'auto'},
-                                style_cell={'textAlign': 'left', 'fontFamily': 'Inter, sans-serif', 'padding': '8px 12px'},
-                                style_header={'backgroundColor': '#66A5AD', 'color': 'white', 'fontWeight': 'bold'},
-                                style_data_conditional=[
-                                    {
-                                        'if': {'row_index': 'odd'},
-                                        'backgroundColor': '#C4DFE6'
-                                    }
-                                ]
-                            )
-                        ], className="reles-fault-card")
+            fault_tables.append(
+                html.Div([
+                    dash_table.DataTable(
+                        id=f'falla-table-{modbus_id}',
+                        columns=[
+                            {"name": "Atributo", "id": "Atributo"},
+                            {"name": "Valor", "id": "Valor"}
+                        ],
+                        data=data_for_table,
+                        style_table={'overflowX': 'auto'},
+                        style_cell={'textAlign': 'left', 'fontFamily': 'Inter, sans-serif', 'padding': '8px 12px'},
+                        style_header={'backgroundColor': '#66A5AD', 'color': 'white', 'fontWeight': 'bold'},
+                        style_data_conditional=[
+                            {
+                                'if': {'row_index': 'odd'},
+                                'backgroundColor': '#C4DFE6'
+                            }
+                        ]
                     )
+                ], className="reles-fault-card")
+            )
 
         if not fault_tables:
             return html.P("No hay datos de fallas disponibles para mostrar o no hay reles configurados.", className="text-gray-600 mt-4")

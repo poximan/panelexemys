@@ -3,17 +3,16 @@ RPC minimalista sobre MQTT.
 - El cliente publica en "app/req/<accion>" con reply_to y corr.
 - El servidor responde publicando en reply_to uno de los topicos del movil.
 """
-
 import json
 import queue
 import time
 from datetime import datetime
 from typing import Optional, Tuple
-from src.persistencia.dao.dao_historicos import historicos_dao
 from src.logger import Logosaurio
 from src.utils.paths import load_observar_key
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.servicios.mqtt import mqtt_event_bus
+from src.web.clients.modbus_client import modbus_client
 import config
 
 REQ_PREFIX = config.MQTT_RPC_REQ_ROOT
@@ -22,14 +21,21 @@ class MqttRequestRouter:
     """
     enrutador simple de requests rpc sobre mqtt basado en topicos
     """
-    def __init__(self, logger: Logosaurio, mqtt_manager, message_queue=None):
+    def __init__(self, logger: Logosaurio, mqtt_manager, key, message_queue=None):
         self.log = logger
         self.manager = mqtt_manager
         self.queue = message_queue  # mantenido por compatibilidad (no se consume)
         self._listener_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
         self._listener = None
         self._origen = "OBS/RPC"
-        self._mail_client = MensageloClient()
+        self._mail_client = MensageloClient(
+            base_url=config.MENSAGELO_BASE_URL,
+            api_key=key,
+            timeout_seconds=int(config.MENSAGELO_TIMEOUT_SECONDS),
+            max_retries=int(config.MENSAGELO_MAX_RETRIES),
+            backoff_initial=float(config.MENSAGELO_BACKOFF_INITIAL),
+            backoff_max=float(config.MENSAGELO_BACKOFF_MAX)
+            )
 
     def start(self):
         """
@@ -81,14 +87,15 @@ class MqttRequestRouter:
         """
         arma resumen global de conectividad y estados actuales por grd
         """
-        latest_states = historicos_dao.get_latest_states_for_all_grds()
-        total = len(latest_states)
-        conectados = sum(1 for v in latest_states.values() if v == 1)
-        pct = (conectados * 100.0 / total) if total > 0 else 0.0
-
+        try:
+            summary_payload = modbus_client.get_summary()
+        except Exception:
+            summary_payload = {"summary": {"porcentaje": 0, "total": 0, "conectados": 0}, "states": {}}
+        latest_states = summary_payload.get("states", {})
+        summary = summary_payload.get("summary", {})
         data = {
             "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "summary": {"porcentaje": round(pct, 2), "total": total, "conectados": conectados},
+            "summary": summary,
             "states": latest_states
         }
         self._emit_ok(corr, reply_to, "get_global_status", data)
@@ -192,6 +199,7 @@ class MqttRequestRouter:
             qos=config.MQTT_PUBLISH_QOS_STATE,
             retain=False,
         )
+
 
 
 

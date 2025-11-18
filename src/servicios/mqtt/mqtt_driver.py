@@ -3,6 +3,10 @@ import threading
 from typing import Callable, List, Optional
 import paho.mqtt.client as mqtt
 import config
+import os
+import platform
+import hashlib
+import uuid
 
 class MqttDriver:
     """
@@ -14,31 +18,33 @@ class MqttDriver:
         self.log = logger
         self._origen = "OBS/MQTT"
 
-        client_id = getattr(config, "MQTT_CLIENT_ID", "")
-        clean_session = getattr(config, "MQTT_CLEAN_SESSION", True)
+        client_id = self._compute_client_id()
+        clean_session = True  # comportamiento habitual en clientes móviles/edge
 
         try:
             self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, client_id=client_id, clean_session=clean_session)
         except TypeError:
             self.client = mqtt.Client(client_id=client_id, clean_session=clean_session)
 
-        username = getattr(config, "MQTT_BROKER_USERNAME", None)
-        password = getattr(config, "MQTT_BROKER_PASSWORD", None)
+        username = config.MQTT_BROKER_USERNAME
+        password = config.MQTT_BROKER_PASSWORD
         if username is not None:
             self.client.username_pw_set(username, password)
 
         will_topic = getattr(config, "MQTT_WILL_TOPIC", None)
-        will_payload = getattr(config, "MQTT_WILL_PAYLOAD", "offline")
-        will_qos = getattr(config, "MQTT_WILL_QOS", 1)
-        will_retain = getattr(config, "MQTT_WILL_RETAIN", True)
+        will_payload = getattr(config, "MQTT_WILL_PAYLOAD", None)
+        will_qos = getattr(config, "MQTT_WILL_QOS", None)
+        will_retain = getattr(config, "MQTT_WILL_RETAIN", None)
         if will_topic:
-            self.client.will_set(will_topic, payload=will_payload, qos=will_qos, retain=will_retain)
+            if will_payload is None or will_qos is None or will_retain is None:
+                raise ValueError("Configuracion LWT incompleta: defina payload/qos/retain")
+            self.client.will_set(will_topic, payload=will_payload, qos=int(will_qos), retain=bool(will_retain))
 
-        if getattr(config, "MQTT_BROKER_USE_TLS", False):
-            ca = getattr(config, "MQTT_BROKER_CA_CERT", None)
+        if config.MQTT_BROKER_USE_TLS:
+            ca = config.MQTT_BROKER_CA_CERT
             certfile = getattr(config, "MQTT_CLIENT_CERTFILE", None)
             keyfile = getattr(config, "MQTT_CLIENT_KEYFILE", None)
-            tls_insecure = getattr(config, "MQTT_TLS_INSECURE", False)
+            tls_insecure = config.MQTT_TLS_INSECURE
             self.client.tls_set(
                 ca_certs=ca,
                 certfile=certfile,
@@ -49,9 +55,9 @@ class MqttDriver:
             self.client.tls_insecure_set(tls_insecure)
             self.log.log(f"TLS configurado (insecure={tls_insecure}).", origen=self._origen)
 
-        self.keepalive = int(getattr(config, "MQTT_BROKER_KEEPALIVE", 60))
-        min_delay = int(getattr(config, "MQTT_RECONNECT_DELAY_MIN", 2))
-        max_delay = int(getattr(config, "MQTT_RECONNECT_DELAY_MAX", 60))
+        self.keepalive = int(config.MQTT_BROKER_KEEPALIVE)
+        min_delay = int(config.MQTT_RECONNECT_DELAY_MIN)
+        max_delay = int(config.MQTT_RECONNECT_DELAY_MAX)
         try:
             self.client.reconnect_delay_set(min_delay=min_delay, max_delay=max_delay)
         except AttributeError:
@@ -68,6 +74,41 @@ class MqttDriver:
         self._connected_event = threading.Event()
         self._connected = False
         self._loop_started = False
+
+    @staticmethod
+    def _compute_client_id() -> str:
+        """Genera un clientId estable por plataforma sin depender de archivos de propiedades.
+        Preferencias: /etc/machine-id -> hostname -> MAC -> UUID aleatoria (último recurso).
+        """
+        candidates: list[str] = []
+        # 1) machine-id (Linux)
+        try:
+            if os.path.exists('/etc/machine-id'):
+                with open('/etc/machine-id','r',encoding='utf-8',errors='ignore') as f:
+                    mid = f.read().strip()
+                    if mid:
+                        candidates.append(mid)
+        except Exception:
+            pass
+        # 2) hostname del SO/contenedor
+        try:
+            hn = platform.node()
+            if hn:
+                candidates.append(hn)
+        except Exception:
+            pass
+        # 3) MAC del host
+        try:
+            mac = uuid.getnode()
+            if mac and (mac >> 40) % 2 == 0:
+                candidates.append(hex(mac))
+        except Exception:
+            pass
+        if not candidates:
+            candidates.append(str(uuid.uuid4()))
+
+        h = hashlib.sha256("|".join(candidates).encode('utf-8')).hexdigest()[:12]
+        return f"panelexemys-{h}"
 
     def _on_connect_internal(self, client, userdata, flags, rc, *args):
         if rc == 0:
@@ -118,9 +159,9 @@ class MqttDriver:
         self._extra_on_message = cb
 
     def connect(self) -> bool:
-        host = getattr(config, "MQTT_BROKER_HOST", "localhost")
-        port = int(getattr(config, "MQTT_BROKER_PORT", 1883))
-        timeout = int(getattr(config, "MQTT_CONNECT_TIMEOUT", 15))
+        host = config.MQTT_BROKER_HOST
+        port = int(config.MQTT_BROKER_PORT)
+        timeout = int(config.MQTT_CONNECT_TIMEOUT)
 
         self.log.log(
             f"MQTT Driver: Intentando conectar a {host}:{port} (keepalive={self.keepalive})",

@@ -1,38 +1,28 @@
-import json
+﻿import json
 from typing import Any, Optional
-from .mqtt_driver import MqttDriver
 import config
 
 class MqttTopicPublisher:
     """
     Publicador simple reutilizable.
-    Usa como default los parámetros de publicaciones de 'estado' definidos en config:
+    Usa como default los parÃ¡metros de publicaciones de 'estado' definidos en config:
       - MQTT_PUBLISH_QOS_STATE
       - MQTT_PUBLISH_RETAIN_STATE
     Se pueden sobreescribir por llamada.
     """
-    def __init__(self, logger, manager=None):
+    def __init__(self, logger, manager):
         self.log = logger
         self._origen = "OBS/PUB"
         self._manager = manager
-        self.driver = None if manager is not None else MqttDriver(logger=self.log)
-        self._started = False
         self._qos_state = int(getattr(config, "MQTT_PUBLISH_QOS_STATE", 1))
         self._retain_state = bool(getattr(config, "MQTT_PUBLISH_RETAIN_STATE", True))
 
     def _ensure_started(self) -> bool:
-        if self._manager is not None:
-            if self._manager.is_connected():
-                return True
-            ok = self._manager.start()
-            if not ok:
-                self.log.log("No se pudo establecer conexion MQTT via manager.", origen=self._origen)
-            return ok
-
-        if self.driver.is_connected():
+        if self._manager.is_connected():
             return True
-        ok = self.driver.connect()
-        self._started = ok
+        ok = self._manager.start()
+        if not ok:
+            self.log.log("No se pudo establecer conexion MQTT via manager.", origen=self._origen)
         return ok
 
     def publish(self, topic: str, payload: Any,
@@ -44,13 +34,11 @@ class MqttTopicPublisher:
         r = self._retain_state if retain is None else bool(retain)
         try:
             data = payload if isinstance(payload, str) else str(payload)
-            if self._manager is not None:
-                self._manager.publish(topic, data, qos=q, retain=r)
-            else:
-                self.driver.publish(topic, data, qos=q, retain=r)
+            self._manager.publish(topic, data, qos=q, retain=r)
         except Exception as e:
             self.log.log(f"Error publicando en '{topic}': {e}", origen=self._origen)
 
     def publish_json(self, topic: str, obj: dict,
                      qos: Optional[int] = None, retain: Optional[bool] = None):
         self.publish(topic, json.dumps(obj, ensure_ascii=False), qos=qos, retain=retain)
+

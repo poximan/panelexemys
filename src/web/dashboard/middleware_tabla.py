@@ -1,10 +1,8 @@
 import dash
 from dash import html
 from dash.dependencies import Input, Output
-import pandas as pd
 from datetime import datetime
-from src.persistencia.dao.dao_historicos import historicos_dao as dao
-from src.persistencia.dao.dao_grd import grd_dao
+from src.web.clients.modbus_client import modbus_client
 
 def get_main_data_table_layout():
     """
@@ -31,7 +29,10 @@ def register_main_data_table_callbacks(app: dash.Dash):
         time_window = time_window_state_data['time_window']
         page_number = time_window_state_data['page_number']
 
-        current_db_grd_descriptions = grd_dao.get_all_grds_with_descriptions()
+        try:
+            current_db_grd_descriptions = modbus_client.get_descriptions()
+        except Exception:
+            current_db_grd_descriptions = {}
 
         if not current_db_grd_descriptions:
             no_grd_message = "ADVERTENCIA: No se han encontrado equipos GRD en la base de datos para consulta."
@@ -42,25 +43,27 @@ def register_main_data_table_callbacks(app: dash.Dash):
             return "Detalles del Equipo", html.P(default_message, className="info-text")
 
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        df = pd.DataFrame()
+        try:
+            history = modbus_client.get_history(selected_grd_id, time_window, page_number)
+        except Exception:
+            history = {"data": []}
+        records = history.get("data", [])
 
-        # Replicamos la logica de carga de datos para la tabla
-        if time_window == '1sem':
-            df = dao.get_weekly_data_for_grd(selected_grd_id, today_str, page_number)
-        elif time_window == '1mes':
-            df = dao.get_monthly_data_for_grd(selected_grd_id, today_str, page_number)
-        elif time_window == 'todo':
-            df = dao.get_all_data_for_grd(selected_grd_id)
-
-        if df.empty:
+        if not records:
             table_content = html.P(f"No hay datos recientes para el GRD ID {selected_grd_id} en el periodo seleccionado.", className="warning-text")
-            # Obtener y usar la descripcion del GRD para el titulo de la tabla de detalles
-            grd_description_for_table_title = grd_dao.get_grd_description(selected_grd_id)
+            grd_description_for_table_title = current_db_grd_descriptions.get(selected_grd_id)
             grd_data_title_text = f"Detalles del Equipo GRD {selected_grd_id} ({grd_description_for_table_title})" if grd_description_for_table_title else f"Detalles del Equipo GRD {selected_grd_id}"
             return grd_data_title_text, table_content
 
-        latest_record = df.sort_values(by='timestamp', ascending=False).iloc[0]
+        latest_record = records[-1]
+        timestamp_val = latest_record.get('timestamp')
+        if isinstance(timestamp_val, str):
+            try:
+                timestamp_display = datetime.fromisoformat(timestamp_val).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                timestamp_display = timestamp_val
+        else:
+            timestamp_display = str(timestamp_val)
 
         table_header = html.Thead(html.Tr([
             html.Th("Campo", className="table-header-cell"),
@@ -70,16 +73,16 @@ def register_main_data_table_callbacks(app: dash.Dash):
         table_rows = [
             html.Tr([
                 html.Td("Ultima Actualizacion", className="table-data-cell"),
-                html.Td(latest_record['timestamp'].strftime("%Y-%m-%d %H:%M:%S"), className="table-data-cell-mono")
+                html.Td(timestamp_display, className="table-data-cell-mono")
             ]),
             html.Tr([
                 html.Td("GRD ID", className="table-data-cell"),
-                html.Td(latest_record['id_grd'], className="table-data-cell-mono")
+                html.Td(latest_record.get('id_grd'), className="table-data-cell-mono")
             ]),
             html.Tr([
                 html.Td("Estado Conectado", className="table-data-cell"),
-                html.Td("Si" if latest_record['conectado'] == 1 else "No",
-                        className=f"table-data-cell-status {'status-connected' if latest_record['conectado']==1 else 'status-disconnected'}")
+                html.Td("Si" if latest_record.get('conectado') == 1 else "No",
+                        className=f"table-data-cell-status {'status-connected' if latest_record.get('conectado')==1 else 'status-disconnected'}")
             ]),
         ]
 
@@ -88,7 +91,7 @@ def register_main_data_table_callbacks(app: dash.Dash):
             html.Tbody(table_rows)
         ])
 
-        grd_description_for_table_title = grd_dao.get_grd_description(selected_grd_id)
+        grd_description_for_table_title = current_db_grd_descriptions.get(selected_grd_id)
         grd_data_title_text = f"Estado actual de {grd_description_for_table_title}"
 
         return grd_data_title_text, table_content

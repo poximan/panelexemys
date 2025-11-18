@@ -4,9 +4,7 @@ from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-from src.persistencia.dao.dao_historicos import historicos_dao as dao
-from src.persistencia.dao.dao_grd import grd_dao
+from src.web.clients.modbus_client import modbus_client
 
 BUTTON_CLASS_DEFAULT = 'button-default'
 BUTTON_CLASS_ACTIVE = 'button-active'
@@ -131,12 +129,11 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
         if grd_id is None or time_window == 'todo':
             raise dash.exceptions.PreventUpdate
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        total_segments = 0
-        if time_window == '1sem':
-            total_segments = dao.get_total_weeks_for_grd(grd_id, today_str)
-        elif time_window == '1mes':
-            total_segments = dao.get_total_months_for_grd(grd_id, today_str)
+        try:
+            history_meta = modbus_client.get_history(grd_id, time_window, page_number)
+            total_segments = int(history_meta.get("total_periods", 0))
+        except Exception:
+            total_segments = 0
 
         if total_segments <= 0:
             raise dash.exceptions.PreventUpdate
@@ -168,12 +165,11 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
         if time_window == 'todo' or grd_id is None:
             return {'display': 'none'}, True, True
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        total_segments = 0
-        if time_window == '1sem':
-            total_segments = dao.get_total_weeks_for_grd(grd_id, today_str)
-        elif time_window == '1mes':
-            total_segments = dao.get_total_months_for_grd(grd_id, today_str)
+        try:
+            history_meta = modbus_client.get_history(grd_id, time_window, page_number)
+            total_segments = int(history_meta.get("total_periods", 0))
+        except Exception:
+            total_segments = 0
 
         if total_segments <= 1:
             return {'display': 'flex', 'justifyContent': 'center', 'gap': '1rem'}, True, True
@@ -194,7 +190,10 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
     def update_connected_wave_graph(time_window_state_data, n_intervals, relayout_data):
         selected_grd_id = time_window_state_data['current_grd_id']
 
-        current_db_grd_descriptions = grd_dao.get_all_grds_with_descriptions()
+        try:
+            current_db_grd_descriptions = modbus_client.get_descriptions()
+        except Exception:
+            current_db_grd_descriptions = {}
 
         if not current_db_grd_descriptions:
             no_grd_message = "ADVERTENCIA: No se han encontrado equipos GRD en la base de datos para consulta."
@@ -218,28 +217,35 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
         time_window = time_window_state_data['time_window']
         page_number = time_window_state_data['page_number']
 
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        df = pd.DataFrame()
-
         xaxis_tickformat = "%d/%m/%y %H:%M"
         xaxis_dtick = None
         xaxis_tickangle = 0
+        try:
+            history_payload = modbus_client.get_history(selected_grd_id, time_window, page_number)
+        except Exception:
+            history_payload = {
+                "data": [],
+                "connected_before": 0,
+                "range_start": datetime.now().isoformat(),
+                "range_end": datetime.now().isoformat(),
+            }
+        df = pd.DataFrame(history_payload.get('data', []))
+        if not df.empty:
+            df = df.sort_values(by='timestamp').reset_index(drop=True)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
 
         if time_window == '1sem':
-            df = dao.get_weekly_data_for_grd(selected_grd_id, today_str, page_number)
-            grd_title_period = f"Semana {page_number + 1} (ultima semana al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
+            grd_title_period = f"Semana {page_number + 1}"
         elif time_window == '1mes':
-            df = dao.get_monthly_data_for_grd(selected_grd_id, today_str, page_number)
-            grd_title_period = f"Mes {page_number + 1} (ultimo mes al {datetime.strptime(today_str, '%Y-%m-%d').strftime('%d/%m/%Y')})"
+            grd_title_period = f"Mes {page_number + 1}"
             xaxis_tickformat = "%d/%m/%y"
-        elif time_window == 'todo':
-            df = dao.get_all_data_for_grd(selected_grd_id)
+        else:
             grd_title_period = "Todos los Datos"
             xaxis_tickformat = "%m/%y"
             xaxis_dtick = "M1"
             xaxis_tickangle = 0
 
-        grd_description_for_title = grd_dao.get_grd_description(selected_grd_id)
+        grd_description_for_title = current_db_grd_descriptions.get(selected_grd_id)
         grd_title_text = f"Historico de Conexion - {grd_title_period}" if grd_description_for_title else f"Historico de Conexion - GRD {selected_grd_id} - {grd_title_period}"
 
         traces = []
@@ -248,16 +254,17 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
         plot_y_line = []
         custom_hover_data_for_line = []
 
-        if not df.empty:
-            df = df.sort_values(by='timestamp').reset_index(drop=True)
+        try:
+            plot_start_time = datetime.fromisoformat(history_payload.get("range_start"))
+        except Exception:
+            plot_start_time = datetime.now() - timedelta(days=30)
+        try:
+            plot_end_time = datetime.fromisoformat(history_payload.get("range_end"))
+        except Exception:
+            plot_end_time = datetime.now()
 
-            plot_start_time = df['timestamp'].min()
-            plot_end_time = df['timestamp'].max()
-            if page_number == 0 and time_window != 'todo':
-                plot_end_time = datetime.now()
-            
-            initial_state_before_window = dao.get_connected_state_before_timestamp(selected_grd_id, plot_start_time)
-            current_state_for_plot = initial_state_before_window if initial_state_before_window is not None else (df['conectado'].iloc[0] if not df.empty else 0)
+        if not df.empty:
+            current_state_for_plot = int(history_payload.get("connected_before", 0))
 
             plot_x_line.append(plot_start_time)
             plot_y_line.append(current_state_for_plot)
@@ -312,21 +319,7 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
                 )
             )
         else:
-            if time_window == '1sem':
-                end_of_period = datetime.now() - timedelta(weeks=page_number)
-                start_of_period = end_of_period - timedelta(days=6)
-                plot_start_time = start_of_period.replace(hour=0, minute=0, second=0, microsecond=0)
-                plot_end_time = end_of_period.replace(hour=23, minute=59, second=59, microsecond=999999)
-            elif time_window == '1mes':
-                ref_date = datetime.now() - relativedelta(months=page_number)
-                plot_start_time = ref_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                plot_end_time = (plot_start_time + relativedelta(months=1) - timedelta(microseconds=1))
-            else:
-                plot_start_time = datetime.now() - timedelta(days=30)
-                plot_end_time = datetime.now()
-
-            initial_state_for_empty_df = dao.get_connected_state_before_timestamp(selected_grd_id, plot_start_time)
-            default_val = initial_state_for_empty_df if initial_state_for_empty_df is not None else 0
+            default_val = int(history_payload.get("connected_before", 0))
             traces.append(
                 go.Scatter(
                     x=[plot_start_time, plot_end_time], y=[default_val, default_val], mode='lines',

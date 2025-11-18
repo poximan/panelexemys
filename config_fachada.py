@@ -1,24 +1,4 @@
-﻿# ---------------------------------------------------------
-# --- middleware exemys -----------------------------------
-# ---------------------------------------------------------
-MB_HOST = '1.1.1.1'        # IP del servidor Modbus TCP al que te conectaras
-MB_PORT = 5                # Puerto estandar Modbus TCP
-MB_ID = 1                   # ID de la unidad Modbus (esclavo) a consultar
-MB_COUNT = 16                # Numero de words consecutivos a leer
-MB_INTERVAL_SECONDS = 60     # Intervalo de lectura Modbus en segundos
-
-# Diccionario de equipos GRD, donde la clave es el ID del GRD y el valor es su descripcion
-GRD_DESCRIPTIONS = {
-    1: "descripcion del punto"
-}
-
-# ---------------------------------------------------------
-# --- serie transparente ----------------------------------
-# ---------------------------------------------------------
-# Diccionario de equipos conectados via serie transparente
-ESCLAVOS_MB = {
-    1: "descripcion del punto"
-}
+﻿
 
 # ---------------------------------------------------------
 # --- Dashboard (dash_config) -----------------------------
@@ -33,7 +13,7 @@ GLOBAL_THRESHOLD_AMARILLO = 85              # Porcentaje debajo del cual conecti
 ALARM_CHECK_INTERVAL_SECONDS = 20              # Intervalo para revisar condicion de alarma
 ALARM_MIN_SUSTAINED_DURATION_MINUTES = 30      # Cuanto debe sostenerse una alarma para enviar email
 ALARM_EMAIL_RECIPIENT = ["miemail@email.com"]
-ALARM_EMAIL_SUBJECT_PREFIX = "[Exemys] "       # Prefijo para el asunto del email
+ALARM_EMAIL_SUBJECT_PREFIX = "[monitor] "       # Prefijo para el asunto del email
 
 # ---------------------------------------------------------
 # --- Mensagelo (servicio HTTP de mensajeria) -------------
@@ -105,10 +85,17 @@ MQTT_PUBLISH_RETAIN_EVENT = False
 # usando alguno de los topicos ya suscritos por el movil (reply_to).
 MQTT_RPC_REQ_ROOT = "app/req"        # nos suscribimos a "app/req/#"
 # Acciones soportadas (para validacion/evolucion)
-MQTT_RPC_ALLOWED_ACTIONS = {\n    "get_global_status",   # responde en estado/exemys con resumen + ultimos estados por GRD\n    "get_modem_status",    # responde en estado/sensor con estado del modem\n    "send_email_test",     # dispara un correo de prueba via mensagelo\n}
+MQTT_RPC_ALLOWED_ACTIONS = {"get_global_status",   # responde en estado/exemys con resumen + ultimos estados por GRD
+                            "get_modem_status",    # responde en estado/sensor con estado del modem
+                            "send_email_test",     # dispara un correo de prueba via mensagelo
+                            }
 
 # TOPICOS VALIDOS PARA reply_to (solo los 3)
-MQTT_RPC_ALLOWED_REPLY_TO = {\n    MQTT_TOPIC_MODEM_CONEXION,\n    MQTT_TOPIC_GRADO,\n    MQTT_TOPIC_GRDS,\n    MQTT_TOPIC_EMAIL_EVENT,\n}
+MQTT_RPC_ALLOWED_REPLY_TO = {MQTT_TOPIC_MODEM_CONEXION,
+                             MQTT_TOPIC_GRADO,
+                             MQTT_TOPIC_GRDS,
+                             MQTT_TOPIC_EMAIL_EVENT
+                             }
 
 # ---------------------------------------------------------
 # --- Base de Datos ---------------------------------------
@@ -133,5 +120,3 @@ PVE_VHOST_IDS = [1]
 PVE_POLL_INTERVAL_SECONDS = 20
 PVE_HTTP_TIMEOUT_SECONDS = 8
 PVE_VERIFY_SSL = False
-
-
