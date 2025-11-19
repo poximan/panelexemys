@@ -27,7 +27,7 @@ class NotifManager:
         self.modem_notifier = NotifModem(logger)
         self.proxmox_host_notifier = NotifProxmoxHost(logger)
         self.proxmox_vm_notifier = NotifProxmoxVm(logger)
-        self._mail_client = MensageloClient(
+        self.mail_client = MensageloClient(
             base_url=config.MENSAGELO_BASE_URL,
             api_key=key,
             timeout_seconds=int(config.MENSAGELO_TIMEOUT_SECONDS),

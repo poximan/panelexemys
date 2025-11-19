@@ -901,10 +901,18 @@
 
 .charito-card {
     position: relative;
+    background: #292b38;
+    color: #f8f9fb;
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .charito-card-stale {
-    border-left: 4px solid #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.4);
 }
 
 .charito-card-placeholder {
@@ -922,51 +930,47 @@
 /* --- Charito: Processes row --- */
 .charito-process-row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px 16px;
-    align-items: center;
-    margin-top: 8px;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .charito-process-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0;
+    display: flex;
+    width: 100%;
 }
 
 .charito-process-tile {
-    width: 140px;
-    min-height: 72px;
-    padding: 8px 10px;
-    border-radius: 10px;
+    width: 100%;
+    min-height: unset;
+    padding: 10px 14px;
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    gap: 4px;
+    box-shadow: none;
 }
 .charito-process-tile--ok { background-color: #2e7d32; color: #f1f8e9; }
 .charito-process-tile--down { background-color: #ff8a80; color: #4a4a4a; }
-.charito-process-tile--unknown { background-color: #90a4ae; color: #eceff1; }
+.charito-process-tile--unknown { background-color: #607d8b; color: #eceff1; }
 
 .charito-process-title {
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
 }
 .charito-process-state {
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.75rem;
 }
 
 .charito-process-label {
     font-size: 0.85rem;
-    color: #2c3e50;
+    color: rgba(255,255,255,0.8);
     font-weight: 600;
 }
 
 .charito-process-empty {
     font-size: 0.85rem;
-    color: #7f8c8d;
+    color: rgba(255,255,255,0.6);
 }
 
 .charito-card-header {
@@ -983,33 +987,51 @@
 }
 
 .charito-card-title {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: #2c3e50;
+    color: #ffffff;
 }
 
 .charito-card-subtitle {
-    font-size: 0.85rem;
-    color: #7f8c8d;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.charito-status-badge {
+.charito-status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    padding: 4px 12px;
+    gap: 8px;
+    padding: 6px 14px;
     border-radius: 999px;
-    background: rgba(39, 174, 96, 0.12);
-    color: #1d7d46;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    background: rgba(39, 174, 96, 0.14);
+    color: #6cff9d;
+    font-weight: 600;
+    font-size: 0.85rem;
 }
 
-.charito-status-badge--stale {
-    background: rgba(231, 76, 60, 0.12);
-    color: #c0392b;
+.charito-status-pill--offline {
+    background: rgba(231, 76, 60, 0.14);
+    color: #ff9c8c;
+}
+
+.charito-status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #6cff9d;
+}
+
+.charito-status-dot--offline {
+    background: #ff7260;
+}
+
+.charito-status-dot--unknown {
+    background: #f1c40f;
+}
+
+.charito-status-text {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .charito-last-seen,
@@ -1021,47 +1043,109 @@
 .charito-section {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .charito-section-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #34495e;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.72);
 }
 
-.charito-metric-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.95rem;
-    color: #2c3e50;
+.charito-progress-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
 }
 
-.charito-metric-pair {
+.charito-progress-block {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    padding: 12px 16px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .charito-metric {
-    min-width: 120px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .charito-metric-label {
-    font-size: 0.78rem;
-    color: #7f8c8d;
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.6);
 }
 
 .charito-metric-value {
     font-size: 1.05rem;
     font-weight: 600;
-    color: #2c3e50;
+    color: #ffffff;
+}
+
+.charito-progress-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    overflow: hidden;
+}
+
+.charito-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #5edcff, #6cff9d);
+    transition: width 0.3s ease;
+}
+
+.charito-progress-block--mem .charito-progress-fill {
+    background: linear-gradient(90deg, #ffcf66, #ff8a80);
+}
+
+.charito-progress-block--cpu-instant .charito-progress-fill {
+    background: linear-gradient(90deg, #8695ff, #d98bff);
+}
+
+.charito-network-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.charito-network-chip {
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.88rem;
+}
+
+.charito-network-chip--up {
+    background: #388e3c;
+    color: #f1f8e9;
+}
+
+.charito-network-chip--down {
+    background: #c62828;
+    color: #ffebee;
+}
+
+.charito-network-name {
+    font-weight: 600;
+}
+
+.charito-network-status {
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+.charito-network-ip {
+    font-size: 0.85rem;
 }
 
 @media (max-width: 768px) {
