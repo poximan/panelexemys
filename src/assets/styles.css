@@ -886,12 +886,6 @@
     padding: 12px;
 }
 
-.charito-container {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
 .charito-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -995,6 +989,11 @@
 .charito-card-subtitle {
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.7);
+}
+
+.charito-card-alias {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.55);
 }
 
 .charito-status-pill {

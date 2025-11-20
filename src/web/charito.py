@@ -19,7 +19,6 @@ STALE_THRESHOLD_SECONDS = int(os.getenv("CHARITO_STALE_THRESHOLD_SECONDS", "180"
 
 def get_charito_layout() -> html.Div:
     return html.Div(
-        className="charito-container",
         children=[
             html.H1("charo-daemon", className="main-title"),
             html.Div(id="charito-last-update", className="info-message"),
@@ -73,7 +72,8 @@ def _error_card(message: str) -> List[html.Div]:
 
 
 def _build_card(item: Dict[str, Any]) -> html.Div:
-    instance_id = item.get("instanceId", "sin-id")
+    alias = item.get("alias") or ""
+    instance_id = item.get("instanceId") or alias or "sin-id"
     status_raw = (item.get("status") or "unknown").lower()
     status_label = {
         "online": "Online",
@@ -101,17 +101,18 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
     window_seconds = item.get("windowSeconds") or item.get("windowDurationSeconds")
     window_label = f"Ventana {window_seconds}s" if window_seconds else "Ventana N/D"
 
+    title_children = [
+        html.Div(instance_id, className="charito-card-title"),
+        html.Div(f"Actualizado: {updated_at}", className="charito-card-subtitle"),
+    ]
+    if alias and alias != instance_id:
+        title_children.append(html.Div(alias, className="charito-card-alias"))
+    title_children.append(html.Div(f"{samples} • {window_label}", className="charito-card-subtitle"))
+
     header = html.Div(
         className="charito-card-header",
         children=[
-            html.Div(
-                className="charito-card-title-block",
-                children=[
-                    html.Div(instance_id, className="charito-card-title"),
-                    html.Div(f"Actualizado: {updated_at}", className="charito-card-subtitle"),
-                    html.Div(f"{samples} • {window_label}", className="charito-card-subtitle"),
-                ],
-            ),
+            html.Div(className="charito-card-title-block", children=title_children),
             html.Div(
                 className=status_cls,
                 children=[

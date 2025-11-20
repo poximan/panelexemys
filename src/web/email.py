@@ -13,7 +13,7 @@ import config
 
 def get_email_layout() -> html.Div:
     """
-    Retorna el layout HTML para la pÃ¡gina de monitoreo y pruebas de correo.
+    Retorna el layout HTML para la pagina de monitoreo y pruebas de correo.
     """
     return html.Div(
         children=[

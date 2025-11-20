@@ -8,7 +8,7 @@ from .categorias.notif_modem import NotifModem
 from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
 from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
 from src.servicios.email.mensagelo_client import MensageloClient
-from src.utils.paths import load_observar_key
+from src.utils.paths import load_observar_key, load_proxmox_state
 from src.web.clients.modbus_client import modbus_client
 import config
 
@@ -44,7 +44,7 @@ class NotifManager:
         connection_percentage = summary.get("summary", {}).get("porcentaje", 0)
         disconnected = summary.get("disconnected", [])
         self._process_alarms(connection_percentage, disconnected)
-        proxmox_snapshot = load_observar_key("proxmox_estado", {})
+        proxmox_snapshot = load_proxmox_state({})
         self._process_proxmox_alarms(proxmox_snapshot)
 
     def _process_alarms(self, current_percentage: float, disconnected_grds: list):
@@ -94,7 +94,7 @@ class NotifManager:
         for vm in vm_alerts:
             subject = f"VM {vm['name']} detenida en Proxmox"
             body = (
-                f"La VM {vm['name']} (ID {vm['vmid']}) presenta estado '{vm['status_display']}' "
+                f"{vm['name']} (ID {vm['vmid']}) presenta estado '{vm['status_display']}' "
                 f"desde hace al menos {config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."
             )
             self._send_notification_and_log(subject, body, config.ALARM_EMAIL_RECIPIENT)

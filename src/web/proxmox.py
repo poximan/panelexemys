@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from datetime import timedelta
 
 from src.web.clients.proxmox_client import ProxmoxClient
+from src.utils.paths import load_proxmox_state, update_proxmox_state
 import config
 
 
@@ -599,8 +600,9 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
     client = ProxmoxClient(os.getenv("PVE_API_BASE", "http://pve-service:8083"))
     try:
         prox = client.get_state()
+        update_proxmox_state(prox)
     except Exception:
-        prox = {}
+        prox = load_proxmox_state({})
 
     ts = prox.get("ts") if isinstance(prox, dict) else None
     vms = prox.get("vms") if isinstance(prox, dict) else []

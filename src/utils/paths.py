@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 
 _OBSERVAR_LOCK = threading.RLock()
 _CHARO_LOCK = threading.RLock()
+_PROX_OBSERVAR_LOCK = threading.RLock()
 
 def get_project_root() -> str:
     """
@@ -41,6 +42,12 @@ def get_charo_state_path() -> str:
     retorna la ruta absoluta a charo.json dentro de data/
     """
     return os.path.join(get_data_dir(), "charo.json")
+
+def get_proxmox_observar_path() -> str:
+    """
+    retorna la ruta absoluta al snapshot de Proxmox en src/web/clients/observar.json
+    """
+    return os.path.join(get_project_root(), "src", "web", "clients", "observar.json")
 
 # -------------------------
 # helpers json genericos
@@ -133,3 +140,34 @@ def save_charo_state(data: Dict[str, Any]) -> bool:
     """
     with _CHARO_LOCK:
         return _save_json_file(get_charo_state_path(), data)
+
+def load_proxmox_observar() -> Dict[str, Any]:
+    """
+    retorna el contenido del snapshot de proxmox
+    """
+    with _PROX_OBSERVAR_LOCK:
+        return _load_json_file(get_proxmox_observar_path())
+
+def save_proxmox_observar(data: Dict[str, Any]) -> bool:
+    """
+    persiste el snapshot de proxmox completo
+    """
+    with _PROX_OBSERVAR_LOCK:
+        return _save_json_file(get_proxmox_observar_path(), data)
+
+def load_proxmox_state(default: Optional[Any] = None) -> Any:
+    """
+    retorna el valor de la clave proxmox_estado en el snapshot dedicado
+    """
+    data = load_proxmox_observar()
+    return data.get("proxmox_estado", default)
+
+def update_proxmox_state(snapshot: Any) -> bool:
+    """
+    actualiza la clave proxmox_estado
+    """
+    with _PROX_OBSERVAR_LOCK:
+        path = get_proxmox_observar_path()
+        data = _load_json_file(path)
+        data["proxmox_estado"] = snapshot
+        return _save_json_file(path, data)
