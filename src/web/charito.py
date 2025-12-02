@@ -1,6 +1,5 @@
 ﻿from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Dict, List
 import os
 import re
@@ -9,6 +8,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
+from src.utils import timebox
 from src.web.clients.charito_client import CharitoClient
 
 IPV4_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
@@ -92,13 +92,15 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
     avg_mem = _format_percent(item.get("averageMemoryUsageRatio"))
 
     latest = item.get("latestSample") or {}
-    latest_cpu_value = _ratio(latest.get("cpuLoad"))
-    latest_cpu = _format_percent(latest.get("cpuLoad"))
-    latest_temp = _format_number(latest.get("cpuTemperatureCelsius"))
+    latest_cpu_value = _ratio(item.get("cpuLoadInstant"))
+    latest_cpu = _format_percent(item.get("cpuLoadInstant"))
+    latest_mem_value = _ratio(item.get("memoryUsageInstant"))
+    latest_mem = _format_percent(item.get("memoryUsageInstant"))
+    latest_temp = _format_number(item.get("cpuTemperatureInstant"))
 
     updated_at = _format_ts(item.get("receivedAt") or item.get("generatedAt"))
-    samples = _format_samples(item.get("samples") or item.get("sampleCount"))
-    window_seconds = item.get("windowSeconds") or item.get("windowDurationSeconds")
+    samples = _format_samples(item.get("samples"))
+    window_seconds = item.get("windowSeconds")
     window_label = f"Ventana {window_seconds}s" if window_seconds else "Ventana N/D"
 
     title_children = [
@@ -117,31 +119,27 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
                 className=status_cls,
                 children=[
                     html.Span(className=f"charito-status-dot charito-status-dot--{status_raw}"),
-                    html.Span(f"Estado: {status_label}", className="charito-status-text"),
+                    html.Span(f"{status_label}", className="charito-status-text"),
                 ],
             ),
         ],
     )
 
-    averages = html.Div(
+    metrics_section = html.Div(
         className="charito-progress-section",
         children=[
-            _progress_block("CPU", avg_cpu, avg_cpu_value, "cpu"),
-            _progress_block("Memoria", avg_mem, avg_mem_value, "mem"),
+            _progress_block("CPU promedio", avg_cpu, avg_cpu_value, "cpu"),
+            _progress_block("CPU instantanea", latest_cpu, latest_cpu_value, "cpu-instant"),
+            _progress_block("MEM promedio", avg_mem, avg_mem_value, "mem"),
+            _progress_block("MEM instantanea", latest_mem, latest_mem_value, "mem-instant"),
         ],
     )
 
-    latest_section = html.Div(
-        className="charito-progress-section",
+    temp_section = html.Div(
+        className="charito-metric",
         children=[
-            _progress_block("CPU instantánea", latest_cpu, latest_cpu_value, "cpu-instant"),
-            html.Div(
-                className="charito-metric",
-                children=[
-                    html.Div("Temp CPU", className="charito-metric-label"),
-                    html.Div(f"{latest_temp} °C", className="charito-metric-value"),
-                ],
-            ),
+            html.Div("Temp CPU", className="charito-metric-label"),
+            html.Div(f"{latest_temp} C", className="charito-metric-value"),
         ],
     )
 
@@ -150,7 +148,7 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
 
     return html.Div(
         className=" ".join(card_cls),
-        children=[header, averages, latest_section, network_section, process_section],
+        children=[header, metrics_section, temp_section, network_section, process_section],
     )
 
 
@@ -304,11 +302,7 @@ def _format_ts(value: Any) -> str:
     if not value:
         return "N/D"
     try:
-        text = str(value)
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        dt = datetime.fromisoformat(text).astimezone(timezone.utc)
-        return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+        return timebox.format_local(value)
     except Exception:
         return str(value)
 

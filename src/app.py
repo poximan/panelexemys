@@ -21,13 +21,6 @@ from src.logger import Logosaurio
 import config
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 # instancia de logger de aplicacion
 logger_app = Logosaurio()
 
@@ -36,9 +29,9 @@ api_key = os.getenv("MENSAGELO_API_KEY")
 DEFAULT_PORT = "8051"
 APP_HOST = os.getenv("PANELEXEMYS_HOST", "0.0.0.0")
 APP_PORT = int(os.getenv("PANELEXEMYS_PORT") or os.getenv("PORT") or DEFAULT_PORT)
-DEBUG_MODE = _env_bool("PANELEXEMYS_DEBUG", False)
-USE_RELOADER = _env_bool("PANELEXEMYS_USE_RELOADER", DEBUG_MODE)
-AUTO_START_MQTT = (not USE_RELOADER) or is_running_from_reloader()
+DEBUG_MODE = False
+USE_RELOADER = False
+AUTO_START_MQTT = True
 
 # servidor dash
 app = dash.Dash(

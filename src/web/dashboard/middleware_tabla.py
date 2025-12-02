@@ -1,7 +1,7 @@
 import dash
 from dash import html
 from dash.dependencies import Input, Output
-from datetime import datetime
+from src.utils import timebox
 from src.web.clients.modbus_client import modbus_client
 
 def get_main_data_table_layout():
@@ -57,13 +57,13 @@ def register_main_data_table_callbacks(app: dash.Dash):
 
         latest_record = records[-1]
         timestamp_val = latest_record.get('timestamp')
-        if isinstance(timestamp_val, str):
+        if timestamp_val:
             try:
-                timestamp_display = datetime.fromisoformat(timestamp_val).strftime("%Y-%m-%d %H:%M:%S")
+                timestamp_display = timebox.format_local(timestamp_val, legacy=True)
             except Exception:
-                timestamp_display = timestamp_val
+                timestamp_display = str(timestamp_val)
         else:
-            timestamp_display = str(timestamp_val)
+            timestamp_display = "N/D"
 
         table_header = html.Thead(html.Tr([
             html.Th("Campo", className="table-header-cell"),

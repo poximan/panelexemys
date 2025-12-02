@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from src.logger import Logosaurio
+from src.utils import timebox
 
 class RegistroFalla:
     """
@@ -118,7 +119,7 @@ class RegistroFalla:
             return
 
         try:
-            self.fault_datetime = datetime(
+            naive_dt = datetime(
                 self.fault_year,
                 self.fault_month,
                 self.fault_day,
@@ -127,6 +128,7 @@ class RegistroFalla:
                 self.fault_seconds,
                 self.fault_microseconds
             )
+            self.fault_datetime = timebox.parse(naive_dt, legacy=True)
         except ValueError as e:
             self.logger.log(
                 f"Error al crear datetime: {e}. Valores: Año={self.fault_year}, Mes={self.fault_month}, "

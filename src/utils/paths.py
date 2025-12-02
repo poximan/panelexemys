@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 _OBSERVAR_LOCK = threading.RLock()
 _CHARO_LOCK = threading.RLock()
 _PROX_OBSERVAR_LOCK = threading.RLock()
+_PROX_VIEW_VALUES = {"vivo", "historico"}
 
 def get_project_root() -> str:
     """
@@ -170,4 +171,20 @@ def update_proxmox_state(snapshot: Any) -> bool:
         path = get_proxmox_observar_path()
         data = _load_json_file(path)
         data["proxmox_estado"] = snapshot
+        return _save_json_file(path, data)
+
+def load_proxmox_view_preference(default: str = "historico") -> str:
+    pref = str(load_proxmox_observar().get("proxmox_vistadefault", default)).strip().lower()
+    if pref not in _PROX_VIEW_VALUES:
+        pref = default if default in _PROX_VIEW_VALUES else "historico"
+    return pref
+
+def update_proxmox_view_preference(preference: str) -> bool:
+    normalized = str(preference).strip().lower()
+    if normalized not in _PROX_VIEW_VALUES:
+        raise ValueError("proxmox_vistadefault debe ser 'vivo' o 'historico'")
+    with _PROX_OBSERVAR_LOCK:
+        path = get_proxmox_observar_path()
+        data = _load_json_file(path)
+        data["proxmox_vistadefault"] = normalized
         return _save_json_file(path, data)

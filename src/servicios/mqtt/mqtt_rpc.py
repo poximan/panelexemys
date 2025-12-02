@@ -5,10 +5,9 @@ RPC minimalista sobre MQTT.
 """
 import json
 import queue
-import time
-from datetime import datetime
 from typing import Optional, Tuple
 from src.logger import Logosaurio
+from src.utils import timebox
 from src.utils.paths import load_observar_key
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.servicios.mqtt import mqtt_event_bus
@@ -94,7 +93,7 @@ class MqttRequestRouter:
         latest_states = summary_payload.get("states", {})
         summary = summary_payload.get("summary", {})
         data = {
-            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "ts": timebox.utc_iso(),
             "summary": summary,
             "states": latest_states
         }
@@ -105,7 +104,7 @@ class MqttRequestRouter:
         devuelve estado del modem desde observar.json -> ip200_estado
         """
         estado = str(load_observar_key("ip200_estado", "conectado"))
-        data = {"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "estado": estado}
+        data = {"ts": timebox.utc_iso(), "estado": estado}
         self._emit_ok(corr, reply_to, "get_modem_status", data)
 
     def _handle_send_email_test(self, corr: str, reply_to: str, params: dict):
@@ -137,7 +136,7 @@ class MqttRequestRouter:
         if not body:
             body = (
                 f"Este es un email de prueba enviado desde {origin_label}. "
-                f"Fecha y Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                f"Fecha y Hora: {timebox.format_local(timebox.utc_now())}"
             )
         elif marker not in body.lower():
             body = f"{body}\n\nOrigen de la prueba: {origin_label}"

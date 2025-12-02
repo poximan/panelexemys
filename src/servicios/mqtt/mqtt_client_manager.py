@@ -1,10 +1,10 @@
 import json
 import queue
-from datetime import datetime, timezone
 from typing import Callable, List, Tuple, Optional
 
 import config
 from .mqtt_driver import MqttDriver
+from src.utils import timebox
 
 
 class MqttClientManager:
@@ -140,7 +140,7 @@ class MqttClientManager:
         payload = {
             "status": "online" if online else "offline",
             "reason": reason,
-            "ts": datetime.utcnow().replace(microsecond=0, tzinfo=timezone.utc).isoformat().replace("+00:00", "Z"),
+            "ts": timebox.utc_iso(),
             "source": "panelexemys",
         }
         try:

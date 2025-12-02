@@ -1,13 +1,13 @@
 import time
 import subprocess
 import platform
-from datetime import datetime
 from typing import Literal, Dict, Optional, Any
 
 import requests
 
 from src.utils.paths import update_observar_key
 from src.logger import Logosaurio
+from src.utils import timebox
 from ..mqtt.mqtt_topic_publisher import MqttTopicPublisher
 import config
 
@@ -128,7 +128,7 @@ def start_email_health_monitor(logger: Logosaurio, mqtt_manager) -> None:
             update_observar_key("server_email_estado", estados)
             enriched_payload = {
                 **estados,
-                "ts": datetime.now().isoformat(timespec="seconds"),
+                "ts": timebox.utc_iso(),
             }
             if enriched_payload != last_payload:
                 publisher.publish_json(

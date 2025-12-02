@@ -5,30 +5,37 @@ from dash.dependencies import Input, Output
 import dash
 import dash_daq as daq
 import plotly.graph_objects as go
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from zoneinfo import ZoneInfo
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from src.web.clients.proxmox_client import ProxmoxClient
-from src.utils.paths import load_proxmox_state, update_proxmox_state
+from src.utils.paths import (
+    load_proxmox_state,
+    update_proxmox_state,
+    load_proxmox_view_preference,
+    update_proxmox_view_preference,
+)
 import config
+from src.utils import timebox
 
 
 DEFAULT_VIEW = getattr(config, "PVE_DASHBOARD_VIEW", "history").lower()
-def _get_local_tz():
-    try:
-        return ZoneInfo(getattr(config, "APP_TIMEZONE", "America/Argentina/Buenos_Aires"))
-    except Exception:
-        try:
-            offset_min = int(getattr(config, "APP_UTC_OFFSET_MINUTES", -180))
-            return timezone(timedelta(minutes=offset_min))
-        except Exception:
-            return timezone.utc
-
-LOCAL_TZ = _get_local_tz()
 
 
+def _default_view_preference() -> str:
+    return "historico" if DEFAULT_VIEW != "classic" else "vivo"
+
+
+def _view_pref_to_bool(pref: str) -> bool:
+    return pref == "historico"
+
+
+def _bool_to_view_pref(value: bool) -> str:
+    return "historico" if value else "vivo"
+
+
+def _default_view_preference() -> str:
+    return "historico" if DEFAULT_VIEW != "classic" else "vivo"
 def _build_placeholder_card(message: str) -> html.Div:
     return html.Div(
         className="proxmox-card proxmox-card-placeholder",
@@ -86,30 +93,25 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
     if not value:
         return None
     try:
-        text = str(value)
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        dt = datetime.fromisoformat(text)
+        return timebox.parse(value, legacy=True)
     except Exception:
         return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
 
 
 def _format_local_timestamp(value: Any) -> str:
-    dt = _parse_timestamp(value)
-    if dt is None:
+    if not value:
         return "N/D"
-    local_dt = dt.astimezone(LOCAL_TZ)
-    return local_dt.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        return timebox.format_local(value, legacy=True)
+    except Exception:
+        return "N/D"
 
 
 def _relative_time(value: Any) -> str:
     dt = _parse_timestamp(value)
     if dt is None:
         return ""
-    now = datetime.now(timezone.utc)
+    now = timebox.utc_now()
     delta = now - dt
     seconds = max(int(delta.total_seconds()), 0)
     if seconds < 60:
@@ -587,11 +589,7 @@ def _latest_history_timestamp(history_map: Dict[int, Dict[str, Any]]) -> Optiona
                     latest_dt = dt
     if latest_dt is None:
         return None
-    utc_dt = latest_dt.astimezone(timezone.utc).replace(microsecond=0)
-    iso = utc_dt.isoformat()
-    if iso.endswith("+00:00"):
-        iso = iso[:-6] + "Z"
-    return iso
+    return timebox.utc_iso(latest_dt)
 
 
 
@@ -651,11 +649,15 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
         if not ts:
             ts = _latest_history_timestamp(history_map)
 
-    selected_view = DEFAULT_VIEW
+    selected_view = "history" if _view_pref_to_bool(_default_view_preference()) else "classic"
     if isinstance(view_toggle_value, bool):
         selected_view = "history" if view_toggle_value else "classic"
     elif isinstance(view_toggle_value, str):
-        selected_view = view_toggle_value.lower()
+        normalized_view = view_toggle_value.lower()
+        if normalized_view in {"history", "historico"}:
+            selected_view = "history"
+        elif normalized_view in {"classic", "vivo"}:
+            selected_view = "classic"
     if selected_view not in {"history", "classic"}:
         selected_view = "history"
     if history_only:
@@ -715,8 +717,12 @@ def get_proxmox_layout() -> html.Div:
     poll_seconds = int(getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20))
     refresh_ms = max(1_000, poll_seconds * 1000)
 
+    pref = load_proxmox_view_preference(_default_view_preference())
+    update_proxmox_view_preference(pref)
+    toggle_history = _view_pref_to_bool(pref)
+
     initial_cards, initial_last_update, initial_status = _render_proxmox_snapshot(
-        DEFAULT_VIEW != "classic"
+        toggle_history
     )
 
     return html.Div(
@@ -744,7 +750,7 @@ def get_proxmox_layout() -> html.Div:
                             html.Span("En vivo", className="proxmox-toggle-option"),
                             daq.ToggleSwitch(
                                 id="proxmox-view-switch",
-                                value=(DEFAULT_VIEW != "classic"),
+                                value=toggle_history,
                                 persistence=True,
                                 persistence_type="session",
                             ),
@@ -773,8 +779,28 @@ def register_proxmox_callbacks(app: dash.Dash) -> None:
         Input("url", "pathname"),
     )
     def update_proxmox_cards(_n: int, view_toggle: Any, _pathname: str):
+        current_pref = load_proxmox_view_preference(_default_view_preference())
+        desired_pref = current_pref
+
+        if isinstance(view_toggle, bool):
+            requested = _bool_to_view_pref(view_toggle)
+            if requested != current_pref:
+                update_proxmox_view_preference(requested)
+                desired_pref = requested
+        elif isinstance(view_toggle, str):
+            normalized = view_toggle.strip().lower()
+            if normalized in {"history", "historico"}:
+                requested = "historico"
+            elif normalized in {"classic", "vivo"}:
+                requested = "vivo"
+            else:
+                requested = current_pref
+            if requested != current_pref:
+                update_proxmox_view_preference(requested)
+                desired_pref = requested
+
         cards, last_update, status_element = _render_proxmox_snapshot(
-            view_toggle, logger=app.logger
+            _view_pref_to_bool(desired_pref), logger=app.logger
         )
         return cards, last_update, status_element
 

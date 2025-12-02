@@ -1,6 +1,7 @@
-import datetime
+from datetime import timedelta
 from typing import Dict, Any
 from src.logger import Logosaurio
+from src.utils import timebox
 import config
 
 class NotifGlobal:
@@ -21,13 +22,13 @@ class NotifGlobal:
 
         if is_below_threshold:
             if self.state['start_time'] is None:
-                self.state['start_time'] = datetime.datetime.now()
+                self.state['start_time'] = timebox.utc_now()
                 self.logger.log(
                     f"Alarma potencial: Conectividad global ({current_percentage:.2f}%) por debajo del {config.GLOBAL_THRESHOLD_ROJO}% - Iniciando conteo.", 
                     origen="NOTIF/GBL"
                 )
-            sustained_duration = datetime.datetime.now() - self.state['start_time']
-            min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
+            sustained_duration = timebox.utc_now() - self.state['start_time']
+            min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
             
             if sustained_duration >= min_duration and not self.state['triggered']:
                 self.state['triggered'] = True

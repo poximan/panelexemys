@@ -1,6 +1,7 @@
-import datetime
+from datetime import timedelta
 from typing import Dict, Any, List
 from src.logger import Logosaurio
+from src.utils import timebox
 import config
 
 class NotifNodo:
@@ -37,7 +38,7 @@ class NotifNodo:
             if current_percentage >= config.GLOBAL_THRESHOLD_ROJO and grd_id not in self.excluded_grd_ids:
                 if grd_id not in self.individual_grd_alarm_states:
                     self.individual_grd_alarm_states[grd_id] = {
-                        'start_time': datetime.datetime.now(),
+                        'start_time': timebox.utc_now(),
                         'triggered': False,
                         'description': grd_description
                     }
@@ -46,8 +47,8 @@ class NotifNodo:
                         origen="NOTIF/NODO"
                     )
                 else:
-                    sustained_duration = datetime.datetime.now() - self.individual_grd_alarm_states[grd_id]['start_time']
-                    min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
+                    sustained_duration = timebox.utc_now() - self.individual_grd_alarm_states[grd_id]['start_time']
+                    min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
 
                     if sustained_duration >= min_duration and not self.individual_grd_alarm_states[grd_id]['triggered']:
                         self.individual_grd_alarm_states[grd_id]['triggered'] = True

@@ -1,7 +1,7 @@
 from dash import html, dcc, no_update, dash_table
 from dash.dependencies import Input, Output, State
 import dash_daq as daq
-from datetime import datetime
+from src.utils import timebox
 from src.web.clients.modbus_client import modbus_client
 import config
 
@@ -87,12 +87,13 @@ def register_reles_micom_callbacks(app):
             latest_falla = item.get("latest") or {}
 
             formatted_timestamp = latest_falla.get('timestamp')
-            if isinstance(formatted_timestamp, str):
+            if formatted_timestamp:
                 try:
-                    dt_object = datetime.fromisoformat(formatted_timestamp)
-                    formatted_timestamp = dt_object.strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, TypeError):
-                    pass
+                    formatted_timestamp = timebox.format_local(formatted_timestamp, legacy=True)
+                except Exception:
+                    formatted_timestamp = str(formatted_timestamp)
+            else:
+                formatted_timestamp = "N/D"
 
             data_for_table = [
                 {"Atributo": "ID Modbus", "Valor": modbus_id},

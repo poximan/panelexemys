@@ -1,8 +1,9 @@
 import json
 import os
-import datetime
+from datetime import timedelta
 from typing import Dict, Any
 from src.logger import Logosaurio
+from src.utils import timebox
 from src.utils.paths import get_observar_path
 import config
 
@@ -26,11 +27,11 @@ class NotifModem:
 
         if is_disconnected:
             if self.state['start_time'] is None:
-                self.state['start_time'] = datetime.datetime.now()
+                self.state['start_time'] = timebox.utc_now()
                 self.logger.log("Alarma potencial: Router Modem desconectado. Iniciando conteo.", origen="NOTIF/MODEM")
             
-            sustained_duration = datetime.datetime.now() - self.state['start_time']
-            min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
+            sustained_duration = timebox.utc_now() - self.state['start_time']
+            min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
             
             if sustained_duration >= min_duration and not self.state['triggered']:
                 self.state['triggered'] = True

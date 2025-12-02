@@ -1,9 +1,9 @@
 import time
-from datetime import datetime
 from ..mqtt.mqtt_topic_publisher import MqttTopicPublisher
 from .tcp_actividad.method.tcp import tcp
 from .tcp_actividad.logs import logs
 from src.logger import Logosaurio
+from src.utils import timebox
 from src.utils.paths import update_observar_key
 import config
 
@@ -53,7 +53,7 @@ def start_api_monitor(logger: Logosaurio, host: str, port: int, mqtt_manager):
             # publicacion mqtt con retain
             payload = {
                 "estado": current_status,
-                "ts": datetime.now().isoformat(timespec="seconds")
+                "ts": timebox.utc_iso()
             }
             if payload != last_payload:
                 publisher.publish_json(

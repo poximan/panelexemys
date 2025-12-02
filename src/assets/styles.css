@@ -1109,6 +1109,10 @@
     background: linear-gradient(90deg, #8695ff, #d98bff);
 }
 
+.charito-progress-block--mem-instant .charito-progress-fill {
+    background: linear-gradient(90deg, #ffa8a8, #ffd180);
+}
+
 .charito-network-list {
     display: flex;
     flex-direction: column;

@@ -8,6 +8,7 @@ from dash.dependencies import Input, Output
 from src.utils.paths import load_observar
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.servicios.mqtt import mqtt_event_bus
+from src.utils import timebox
 import config
 
 
@@ -113,7 +114,7 @@ def register_email_callbacks(app: dash.Dash, key) -> None:
         prefixed_subject = f"{config.ALARM_EMAIL_SUBJECT_PREFIX}{test_subject}"
         test_body = (
             f"Este es un email de prueba enviado desde {origin_label}. "
-            f"Fecha y Hora: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+            f"Fecha y Hora: {timebox.format_local(timebox.utc_now())}"
         )
 
         try:

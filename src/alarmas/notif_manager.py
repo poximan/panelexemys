@@ -1,4 +1,3 @@
-﻿import datetime
 from typing import List
 from src.logger import Logosaurio
 from ..servicios.mqtt import mqtt_event_bus as bus
@@ -8,6 +7,7 @@ from .categorias.notif_modem import NotifModem
 from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
 from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
 from src.servicios.email.mensagelo_client import MensageloClient
+from src.utils import timebox
 from src.utils.paths import load_observar_key, load_proxmox_state
 from src.web.clients.modbus_client import modbus_client
 import config
@@ -130,7 +130,7 @@ class NotifManager:
         mensajes_enviados_dao.insert_sent_message(
             subject=subject,
             body=body,
-            timestamp=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=timebox.utc_iso(),
             message_type="alarm_event",
             recipients=recipient,
             success=ok

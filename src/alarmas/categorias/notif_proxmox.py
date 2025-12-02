@@ -1,7 +1,8 @@
-import datetime
+from datetime import timedelta
 from typing import Any, Dict, List
 
 from src.logger import Logosaurio
+from src.utils import timebox
 import config
 
 
@@ -29,8 +30,8 @@ class NotifProxmoxHost:
                 error_text = str(raw_error)
 
         offline = bool(error_text)
-        now = datetime.datetime.now()
-        min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
+        now = timebox.utc_now()
+        min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
 
         if offline:
             if self.state["start_time"] is None:
@@ -87,8 +88,8 @@ class NotifProxmoxVm:
             vm_map[vmid] = item
 
         alerts: List[Dict[str, Any]] = []
-        now = datetime.datetime.now()
-        min_duration = datetime.timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
+        now = timebox.utc_now()
+        min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
 
         for vmid in configured_ids:
             vm_info = vm_map.get(vmid)

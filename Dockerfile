@@ -12,13 +12,14 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
+COPY timeauthority-pkg /timeauthority-pkg
+COPY panelexemys/requirements.txt /app/requirements.txt
 RUN pip install --no-compile -r /app/requirements.txt
 
 RUN useradd -m -u 10001 appuser
 
-COPY src /app/src
-COPY config.py /app/config.py
+COPY panelexemys/src /app/src
+COPY panelexemys/config.py /app/config.py
 
 RUN chown -R appuser:appuser /app
 

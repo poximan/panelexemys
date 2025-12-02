@@ -3,7 +3,8 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objects as go
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import timedelta
+from src.utils import timebox
 from src.web.clients.modbus_client import modbus_client
 
 BUTTON_CLASS_DEFAULT = 'button-default'
@@ -226,13 +227,13 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
             history_payload = {
                 "data": [],
                 "connected_before": 0,
-                "range_start": datetime.now().isoformat(),
-                "range_end": datetime.now().isoformat(),
+                "range_start": timebox.utc_iso(),
+                "range_end": timebox.utc_iso(),
             }
         df = pd.DataFrame(history_payload.get('data', []))
         if not df.empty:
             df = df.sort_values(by='timestamp').reset_index(drop=True)
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
 
         if time_window == '1sem':
             grd_title_period = f"Semana {page_number + 1}"
@@ -255,20 +256,26 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
         custom_hover_data_for_line = []
 
         try:
-            plot_start_time = datetime.fromisoformat(history_payload.get("range_start"))
+            plot_start_time = timebox.parse(history_payload.get("range_start"), legacy=True)
         except Exception:
-            plot_start_time = datetime.now() - timedelta(days=30)
+            plot_start_time = timebox.utc_now() - timedelta(days=30)
         try:
-            plot_end_time = datetime.fromisoformat(history_payload.get("range_end"))
+            plot_end_time = timebox.parse(history_payload.get("range_end"), legacy=True)
         except Exception:
-            plot_end_time = datetime.now()
+            plot_end_time = timebox.utc_now()
+
+        def _format_local(dt_value):
+            try:
+                return timebox.format_local(dt_value, legacy=True)
+            except Exception:
+                return str(dt_value)
 
         if not df.empty:
             current_state_for_plot = int(history_payload.get("connected_before", 0))
 
             plot_x_line.append(plot_start_time)
             plot_y_line.append(current_state_for_plot)
-            custom_hover_data_for_line.append(STATE_TEXT_MAP[current_state_for_plot])
+            custom_hover_data_for_line.append((_format_local(plot_start_time), STATE_TEXT_MAP[current_state_for_plot]))
 
             for i in range(len(df)):
                 current_ts_data_point = df['timestamp'].iloc[i]
@@ -289,11 +296,11 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
 
                 plot_x_line.append(current_ts_data_point)
                 plot_y_line.append(current_state_for_plot)
-                custom_hover_data_for_line.append(STATE_TEXT_MAP[current_state_for_plot])
+                custom_hover_data_for_line.append((_format_local(plot_x_line[-1]), STATE_TEXT_MAP[current_state_for_plot]))
 
                 plot_x_line.append(current_ts_data_point)
                 plot_y_line.append(current_val_data_point)
-                custom_hover_data_for_line.append(STATE_TEXT_MAP[current_val_data_point])
+                custom_hover_data_for_line.append((_format_local(current_ts_data_point), STATE_TEXT_MAP[current_val_data_point]))
 
                 current_state_for_plot = current_val_data_point
 
@@ -308,24 +315,26 @@ def register_controls_and_graph_callbacks(app: dash.Dash):
                 )
                 plot_x_line.append(plot_end_time)
                 plot_y_line.append(current_state_for_plot)
-                custom_hover_data_for_line.append(STATE_TEXT_MAP[current_state_for_plot])
+                custom_hover_data_for_line.append((_format_local(plot_end_time), STATE_TEXT_MAP[current_state_for_plot]))
 
             traces.append(
                 go.Scatter(
                     x=plot_x_line, y=plot_y_line, mode='lines',
                     line=dict(color='rgba(0,0,0,0)', width=0),
                     name='Estado de Conexion', customdata=custom_hover_data_for_line,
-                    hovertemplate="<b>Fecha/Hora:</b> %{x|%Y-%m-%d %H:%M:%S}<br><b>Estado:</b> %{customdata}<extra></extra>"
+                    hovertemplate="<b>Fecha/Hora:</b> %{customdata[0]}<br><b>Estado:</b> %{customdata[1]}<extra></extra>"
                 )
             )
         else:
             default_val = int(history_payload.get("connected_before", 0))
+            default_local_start = _format_local(plot_start_time)
+            default_local_end = _format_local(plot_end_time)
             traces.append(
                 go.Scatter(
                     x=[plot_start_time, plot_end_time], y=[default_val, default_val], mode='lines',
                     line=dict(color='rgba(0,0,0,0)', width=0), name='Sin Datos / Estado Anterior',
-                    customdata=[STATE_TEXT_MAP[default_val], STATE_TEXT_MAP[default_val]],
-                    hovertemplate="<b>Fecha/Hora:</b> %{x|%Y-%m-%d %H:%M:%S}<br><b>Estado:</b> %{customdata}<extra></extra>"
+                    customdata=[(default_local_start, STATE_TEXT_MAP[default_val]), (default_local_end, STATE_TEXT_MAP[default_val])],
+                    hovertemplate="<b>Fecha/Hora:</b> %{customdata[0]}<br><b>Estado:</b> %{customdata[1]}<extra></extra>"
                 )
             )
             shapes.append(

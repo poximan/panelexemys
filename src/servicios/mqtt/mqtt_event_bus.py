@@ -1,8 +1,8 @@
 import json
-from datetime import datetime
 from typing import Any
 
 import config
+from src.utils import timebox
 
 _manager = None  # instancia de MqttClientManager
 
@@ -56,7 +56,7 @@ def publish_email_event(subject: str, ok: bool) -> None:
         "type": "email",
         "subject": subject,
         "ok": bool(ok),
-        "ts": datetime.now().isoformat(timespec="seconds"),
+        "ts": timebox.utc_iso(),
     }
     _safe_publish(
         config.MQTT_TOPIC_EMAIL_EVENT,

@@ -2,7 +2,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.graph_objects as go
-from datetime import datetime
+from src.utils import timebox
 from src.web.clients.modbus_client import modbus_client
 
 def get_kpi_panel_layout():
@@ -117,7 +117,7 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
         disconnected_table_rows = []
         if disconnected_grds_data:
             
-            current_time = datetime.now() # Get current time once for efficiency
+            current_time = timebox.utc_now()
             try:
                 grds_map = modbus_client.get_descriptions()
             except Exception:
@@ -128,21 +128,14 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                 timestamp_str = 'N/A'
                 time_disconnected_minutes = 'N/A'
 
-                if isinstance(timestamp_obj, datetime):
-                    timestamp_str = timestamp_obj.strftime("%Y-%m-%d %H:%M:%S")
-                    time_difference = current_time - timestamp_obj
-                else:
-                    ts_value = item.get("last_disconnected_timestamp")
-                    if isinstance(ts_value, str):
-                        try:
-                            ts_dt = datetime.fromisoformat(ts_value)
-                            timestamp_str = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-                            time_difference = current_time - ts_dt
-                        except Exception:
-                            time_difference = None
-                    else:
-                        time_difference = None
-                    # Calculate difference in minutes and format it nicely
+                ts_value = timestamp_obj or item.get("last_disconnected_timestamp")
+                try:
+                    timestamp_str = timebox.format_local(ts_value, legacy=True)
+                    ts_dt = timebox.parse(ts_value, legacy=True)
+                    time_difference = current_time - ts_dt
+                except Exception:
+                    timestamp_str = str(ts_value) if ts_value else "N/A"
+                    time_difference = None
                 if time_difference:
                     total_seconds = int(time_difference.total_seconds())
                     minutes = total_seconds // 60

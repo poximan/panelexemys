@@ -1,5 +1,6 @@
-from datetime import datetime
 from typing import Dict, Optional
+
+from src.utils import timebox
 
 class Logosaurio:
     """
@@ -29,7 +30,7 @@ class Logosaurio:
             return  # No hace nada si el mensaje es el mismo
 
         # Si el mensaje es diferente, lo registramos y actualizamos el diccionario
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = timebox.utc_iso()
         print(f"[{timestamp}] - [{origen}] - {message}")
         
         self._last_messages_by_origin[origen] = message
