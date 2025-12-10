@@ -7,6 +7,7 @@ from queue import Queue, Empty
 import json
 import config
 import dash_daq as daq
+from src.utils import timebox
 from src.utils.paths import load_observar_key, update_observar_key
 
 message_queue: Queue | None = None
@@ -179,6 +180,24 @@ def _ensure_connected():
     threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
     return False
 
+def _prepare_payload_with_ts(raw_value: str, context: str, required_keys: tuple[str, ...]) -> str:
+    """
+    Valida que el payload sea un objeto JSON con las claves requeridas
+    y escribe el campo ts con un valor UTC.
+    """
+    obj = json.loads(raw_value)
+    if not isinstance(obj, dict):
+        print(f"[BROKER/PUBLISH] {context}: payload debe ser objeto JSON. Recibido {type(obj).__name__}")
+        raise ValueError(f"{context}: payload debe ser objeto JSON")
+
+    missing = [key for key in required_keys if key not in obj]
+    if missing:
+        print(f"[BROKER/PUBLISH] {context}: faltan claves obligatorias {missing}")
+        raise ValueError(f"{context}: faltan claves obligatorias {missing}")
+
+    obj["ts"] = timebox.utc_iso()
+    return json.dumps(obj, ensure_ascii=False)
+
 
 def register_broker_callbacks(app: dash.Dash):
 
@@ -244,19 +263,30 @@ def register_broker_callbacks(app: dash.Dash):
 
         try:
             if button_id == 'btn-publish-grado':
-                # validar json
-                json.loads(v_grado)
-                mqtt_client_manager.publish(config.MQTT_TOPIC_GRADO, v_grado, qos=qos, retain=retain)
+                payload = _prepare_payload_with_ts(
+                    v_grado,
+                    "GRADO",
+                    ("porcentaje", "total", "conectados"),
+                )
+                mqtt_client_manager.publish(config.MQTT_TOPIC_GRADO, payload, qos=qos, retain=retain)
                 return "PUBLISHED_GRADO"
 
             if button_id == 'btn-publish-grds':
-                json.loads(v_grds)
-                mqtt_client_manager.publish(config.MQTT_TOPIC_GRDS, v_grds, qos=qos, retain=retain)
+                payload = _prepare_payload_with_ts(
+                    v_grds,
+                    "GRDS",
+                    ("items",),
+                )
+                mqtt_client_manager.publish(config.MQTT_TOPIC_GRDS, payload, qos=qos, retain=retain)
                 return "PUBLISHED_GRDS"
 
             if button_id == 'btn-publish-modem':
-                json.loads(v_modem)
-                mqtt_client_manager.publish(config.MQTT_TOPIC_MODEM_CONEXION, v_modem, qos=qos, retain=retain)
+                payload = _prepare_payload_with_ts(
+                    v_modem,
+                    "MODEM",
+                    ("estado",),
+                )
+                mqtt_client_manager.publish(config.MQTT_TOPIC_MODEM_CONEXION, payload, qos=qos, retain=retain)
                 return "PUBLISHED_MODEM"
 
             return ""
