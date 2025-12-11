@@ -23,14 +23,42 @@ class NotifProxmoxHost:
         """
         Retorna True si debe dispararse la alarma de hipervisor no disponible.
         """
-        error_text = ""
-        if isinstance(snapshot, dict):
-            raw_error = snapshot.get("error")
-            if raw_error:
-                error_text = str(raw_error)
+        now = timebox.utc_now()
+        data = snapshot if isinstance(snapshot, dict) else {}
+        raw_error = data.get("error")
+        error_text = str(raw_error) if raw_error else ""
 
         offline = bool(error_text)
-        now = timebox.utc_now()
+        stale_reason = ""
+        ts = data.get("ts")
+        stale_limit = int(
+            max(
+                getattr(config, "PVE_STALE_THRESHOLD_SECONDS", getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20) * 3),
+                getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20),
+            )
+        )
+        if not offline:
+            dt = None
+            if ts:
+                try:
+                    dt = timebox.parse(ts, legacy=True)
+                except Exception:
+                    dt = None
+            if dt is None:
+                stale_reason = "sin timestamp reciente"
+            else:
+                age = (now - dt).total_seconds()
+                if age >= stale_limit:
+                    stale_reason = f"sin actualizacion desde hace {int(age)}s"
+            if stale_reason:
+                offline = True
+                if not error_text:
+                    error_text = stale_reason
+
+        if not offline and not data:
+            offline = True
+            error_text = error_text or "sin snapshot disponible"
+
         min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
 
         if offline:

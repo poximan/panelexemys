@@ -1,3 +1,4 @@
+import os
 from typing import List
 from src.logger import Logosaurio
 from ..servicios.mqtt import mqtt_event_bus as bus
@@ -8,8 +9,8 @@ from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
 from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.utils import timebox
-from src.utils.paths import load_observar_key, load_proxmox_state
 from src.web.clients.modbus_client import modbus_client
+from src.web.clients.proxmox_client import ProxmoxClient
 import config
 
 class NotifManager:
@@ -27,6 +28,8 @@ class NotifManager:
         self.modem_notifier = NotifModem(logger)
         self.proxmox_host_notifier = NotifProxmoxHost(logger)
         self.proxmox_vm_notifier = NotifProxmoxVm(logger)
+        base_url = os.getenv("PVE_API_BASE", "http://pve-service:8083")
+        self.proxmox_client = ProxmoxClient(base_url)
         self.mail_client = MensageloClient(
             base_url=config.MENSAGELO_BASE_URL,
             api_key=key,
@@ -44,8 +47,20 @@ class NotifManager:
         connection_percentage = summary.get("summary", {}).get("porcentaje", 0)
         disconnected = summary.get("disconnected", [])
         self._process_alarms(connection_percentage, disconnected)
-        proxmox_snapshot = load_proxmox_state({})
-        self._process_proxmox_alarms(proxmox_snapshot)
+        self._process_proxmox_alarms(self._fetch_proxmox_snapshot())
+
+    def _fetch_proxmox_snapshot(self) -> dict:
+        """
+        Consulta directamente el servicio pve-service para obtener el estado actual del hipervisor.
+        """
+        try:
+            snapshot = self.proxmox_client.get_state()
+            if isinstance(snapshot, dict):
+                return snapshot
+            self.logger.log("Snapshot Proxmox invalido (no dict).", origen="ALRM/PVE")
+        except Exception as exc:
+            self.logger.log(f"ERROR consultando estado Proxmox: {exc}", origen="ALRM/PVE")
+        return {}
 
     def _process_alarms(self, current_percentage: float, disconnected_grds: list):
         if self.global_notifier.evaluate_condition(current_percentage):

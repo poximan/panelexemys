@@ -256,7 +256,13 @@ def _build_history_chart(
     fig = go.Figure()
 
     if series:
-        x_values = [point["dt"] for point in series]
+        x_values = []
+        for point in series:
+            try:
+                local_dt = timebox.to_local(point["dt"])
+                x_values.append(local_dt.isoformat())
+            except Exception:
+                x_values.append(point["dt"].isoformat())
         y_values = [point["value"] for point in series]
         fig.add_trace(
             go.Scatter(
