@@ -59,12 +59,12 @@ def configure_dash_app(
                 id="navbar-links-container",
                 children=[
                     dcc.Link("Dashboard", href=f"{BASE}", className="nav-link"),
-                    dcc.Link("Reles MiCOM", href=f"{BASE}/reles", className="nav-link"),
-                    dcc.Link("Mantenimiento", href=f"{BASE}/mantenimiento", className="nav-link"),
                     dcc.Link("Email", href=f"{BASE}/email", className="nav-link"),
-                    dcc.Link("Broker", href=f"{BASE}/broker", className="nav-link"),
                     dcc.Link("Proxmox", href=f"{BASE}/proxmox", className="nav-link"),
                     dcc.Link("Charito", href=f"{BASE}/charito", className="nav-link"),
+                    dcc.Link("Reles MiCOM", href=f"{BASE}/reles", className="nav-link"),
+                    dcc.Link("Mantenimiento", href=f"{BASE}/mantenimiento", className="nav-link"),
+                    dcc.Link("Broker", href=f"{BASE}/broker", className="nav-link"),
                 ],
             ),
             html.Hr(className="navbar-separator"),
@@ -100,3 +100,5 @@ def configure_dash_app(
     register_broker_callbacks(app)
     register_proxmox_callbacks(app)
     register_charito_callbacks(app)
+
+
