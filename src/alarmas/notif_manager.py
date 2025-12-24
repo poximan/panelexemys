@@ -6,7 +6,7 @@ from .categorias.notif_global import NotifGlobal
 from .categorias.notif_nodo import NotifNodo
 from .categorias.notif_modem import NotifModem
 from .categorias.notif_proxmox import NotifProxmoxHost, NotifProxmoxVm
-from src.persistencia.dao.dao_mensajes_enviados import mensajes_enviados_dao
+from src.dao.dao_mensajes_enviados import mensajes_enviados_dao
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.utils import timebox
 from src.web.clients.modbus_client import modbus_client
@@ -86,7 +86,7 @@ class NotifManager:
         if self.modem_notifier.evaluate_condition():
             subject = "Router telef. puerto de escucha cerrado"
             body = (
-                f"El modem del ruteo ha estado desconectado por mas de "
+                f"El modem del ruteo reporta su puerto cerrado desde hace mas de "
                 f"{config.ALARM_MIN_SUSTAINED_DURATION_MINUTES} minutos."
             )
             self._send_notification_and_log(subject, body, config.ALARM_EMAIL_RECIPIENT)

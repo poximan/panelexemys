@@ -37,7 +37,7 @@ def get_reles_micom_layout():
 
         dcc.Interval(
             id='reles-faults-interval',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
+            interval=config.DASH_REFRESH_SECONDS,
             n_intervals=0
         )
     ])
@@ -132,3 +132,4 @@ def register_reles_micom_callbacks(app):
             return html.P("No hay datos de fallas disponibles para mostrar o no hay reles configurados.", className="text-gray-600 mt-4")
 
         return fault_tables
+

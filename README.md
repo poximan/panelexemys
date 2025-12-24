@@ -31,7 +31,7 @@ Las tareas de monitoreo más importantes se resumen en la siguiente tabla:
 |-------------------------|-----------------------------------------------|------------------------------------------|---------------------------------------------------------|----------------------------------------------------------------|
 | Conectividad de GRD     | Equipos GRD (ej. *SS - presuriz doradillo*)  | Modbus TCP                               | Cada 60 segundos (`MB_INTERVAL_SECONDS`)                | Verificar si los equipos están en línea o desconectados.        |
 | Fallas de Relés         | Relés de protección MiCOM                     | Modbus TCP                               | Cada 60 segundos (`MB_INTERVAL_SECONDS`)                | Leer y registrar datos detallados sobre fallas eléctricas.      |
-| Estado del Módem        | Conexión de red (200.63.163.36:40000)         | Llamada API al servicio check-host.net    | Backoff exponencial: base 300s éxito / 30-900s en fallo | Confirmar que la conexión principal a internet esté operativa.  |
+| Estado del M�dem        | Conexi�n de red (200.63.163.36:40000)         | Servicio `router-telef-service` (sondeo TCP local) | Cada 10 segundos | Confirmar que la conexi�n principal a internet est� operativa.  |
 
 ---
 
@@ -82,7 +82,7 @@ Secciones principales:
 El sistema también interactúa con clientes externos (ej: app móvil) mediante **MQTT**.
 
 - **Publicación de datos**:
-  - `exemys/estado/conexion_modem`: conexión a internet activa/caída.  
+  - `exemys/estado/conexion_modem`: estado del puerto TCP remoto (`abierto`, `cerrado` o `desconocido`).  
   - `exemys/estado/grado`: % global de conectividad.  
   - `exemys/estado/grds`: lista de equipos desconectados.  
 
@@ -110,6 +110,8 @@ El sistema también interactúa con clientes externos (ej: app móvil) mediante 
 - **Pymodbus** → comunicación industrial con GRDs/relés vía Modbus TCP.  
 - **Paho-MQTT** → mensajería en tiempo real y RPC con app móvil.  
 - **SQLite** → motor de base de datos ligero y confiable.  
-- **Requests** → llamadas HTTP a APIs externas (Mensagelo, check-host.net).
+- **Requests** → llamadas HTTP a APIs externas (Mensagelo, router-telef-service).
 
 ---
+
+

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import time
 import dash
@@ -72,7 +72,7 @@ def get_email_layout() -> html.Div:
                     ),
                     dcc.Interval(
                         id="email-health-interval",
-                        interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
+                        interval=config.DASH_REFRESH_SECONDS,
                         n_intervals=0,
                     ),
                 ],
@@ -194,5 +194,6 @@ def register_email_callbacks(app: dash.Dash, key) -> None:
         ping_remoto = estados.get("ping_remoto", "desconocido")
 
         return smtp, ping_local, ping_remoto
+
 
 

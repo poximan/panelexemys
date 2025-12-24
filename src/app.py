@@ -1,15 +1,14 @@
-﻿# src/app.py
+# src/app.py
 import os
 import threading
 import time
-from werkzeug.serving import is_running_from_reloader
 from flask import request, Response
+from werkzeug.middleware.proxy_fix import ProxyFix
 import dash
 import requests
 from .web import dash_config
 from queue import Queue
 
-from src.servicios.tcp.tcp_api import start_api_monitor
 from src.servicios.mqtt.mqtt_client_manager import MqttClientManager
 
 from src.servicios.mqtt import mqtt_event_bus
@@ -32,6 +31,8 @@ APP_PORT = int(os.getenv("PANELEXEMYS_PORT") or os.getenv("PORT") or DEFAULT_POR
 DEBUG_MODE = False
 USE_RELOADER = False
 AUTO_START_MQTT = True
+_services_lock = threading.Lock()
+_services_started = False
 
 # servidor dash
 app = dash.Dash(
@@ -41,6 +42,7 @@ app = dash.Dash(
     suppress_callback_exceptions=True,  # opcional pero util en apps multipagina
 )
 server = app.server
+server.wsgi_app = ProxyFix(server.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)
 
 
 @server.before_request
@@ -60,7 +62,7 @@ def log_user_ip():
 @server.route("/repohttp/<path:path>")
 def proxy_repohttp(path: str):
     """
-    Proxy interno: expone repohttp únicamente a través de panelexemys.
+    Proxy interno: expone repohttp unicamente a traves de panelexemys.
     """
     base_url = "http://repohttp:8080"
     url = f"{base_url}/{path}"
@@ -151,53 +153,45 @@ def _start_alarm_manager(logger: Logosaurio) -> None:
     threading.Thread(target=alarm_loop, name="notif-manager", daemon=True).start()
 
 
-if __name__ == "__main__":
+def _start_background_services():
+    """
+    Inicializa servicios permanentes (MQTT, RPC, monitor email y alarmas) una sola vez.
+    """
+    global _services_started
+    if _services_started:
+        return
+    with _services_lock:
+        if _services_started:
+            return
 
-    if not is_running_from_reloader():
-        logger_app.log(
-            "1: Es el proceso principal. Realizando tareas de inicializacion...",
-            origen="APP",
-        )
+        logger_app.log("Inicializando servicios de panelexemys...", origen="APP")
 
-        # cliente mqtt
         if AUTO_START_MQTT:
-            logger_app.log("2: Lanzando cliente MQTT...", origen="APP")
+            logger_app.log("Lanzando cliente MQTT...", origen="APP")
             threading.Thread(target=mqtt_client_manager.start, daemon=True).start()
         else:
-            logger_app.log(
-                "2: Lanzando cliente MQTT... (omitido en proceso reloader).",
-                origen="APP",
-            )
+            logger_app.log("Cliente MQTT configurado para no auto iniciar.", origen="APP")
 
-        # orquestador modbus (grds y reles)
-        logger_app.log("3: Lanzando monitor TCP (modem)...", origen="APP")
-        threading.Thread(
-            target=start_api_monitor,
-            args=(logger_app, "200.63.163.36", 40000, mqtt_client_manager),
-            daemon=True,
-        ).start()
-
-        # router rpc mqtt (escucha app/req/#)
-        logger_app.log("4: Iniciando RPC sobre MQTT...", origen="APP")
+        logger_app.log("Iniciando RPC sobre MQTT...", origen="APP")
         threading.Thread(target=rpc_router.start, daemon=True).start()
 
-        # monitor smtp (actualiza observar.json -> server_email_estado)
-        logger_app.log("5: Lanzando monitor servidor email (SMTP NOOP)...", origen="APP")
+        logger_app.log("Lanzando monitor servidor email (SMTP NOOP)...", origen="APP")
         threading.Thread(
             target=start_email_health_monitor,
             args=(logger_app, mqtt_client_manager),
             daemon=True,
         ).start()
 
-        # Monitoreo Proxmox y Charito ahora via servicios HTTP (UI usa clientes web)
-
-    else:
-        logger_app.log("Es el reloader, se omite init pesado.", origen="APP")
-
-    if not is_running_from_reloader():
-        logger_app.log("6: Lanzando gestor de alarmas...", origen="APP")
+        logger_app.log("Lanzando gestor de alarmas...", origen="APP")
         _start_alarm_manager(logger_app)
 
+        _services_started = True
+
+
+_start_background_services()
+
+
+if __name__ == "__main__":
     logger_app.log("Iniciando servidor Dash...", origen="APP")
     app.run_server(
         debug=DEBUG_MODE,
@@ -205,3 +199,6 @@ if __name__ == "__main__":
         host=APP_HOST,
         port=APP_PORT,
     )
+
+
+

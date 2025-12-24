@@ -27,4 +27,4 @@ USER appuser
 
 EXPOSE 8052
 
-CMD ["python", "-m", "src.app"]
+CMD ["waitress-serve", "--listen=0.0.0.0:8052", "src.app:server"]

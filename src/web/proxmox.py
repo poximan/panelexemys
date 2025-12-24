@@ -1,4 +1,4 @@
-﻿import dash
+import dash
 import os
 from dash import dcc, html
 from dash.dependencies import Input, Output
@@ -721,7 +721,7 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
 
 def get_proxmox_layout() -> html.Div:
     poll_seconds = int(getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20))
-    refresh_ms = max(1_000, poll_seconds * 1000)
+    refresh_ms = config.DASH_REFRESH_SECONDS
 
     pref = load_proxmox_view_preference(_default_view_preference())
     update_proxmox_view_preference(pref)
@@ -809,6 +809,8 @@ def register_proxmox_callbacks(app: dash.Dash) -> None:
             _view_pref_to_bool(desired_pref), logger=app.logger
         )
         return cards, last_update, status_element
+
+
 
 
 

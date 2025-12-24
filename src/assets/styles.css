@@ -1175,3 +1175,19 @@
 .proxmox-card-body-classic {
     gap: 20px;
 }
+/* --- Accion de salida en la barra --- */
+.nav-link-logout {
+    margin-left: auto;
+    background-color: #e67e22;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 8px 18px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.nav-link-logout:hover {
+    background-color: #d35400;
+    color: #fff;
+}

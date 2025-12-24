@@ -1,10 +1,8 @@
-import json
-import os
 from datetime import timedelta
 from typing import Dict, Any
 from src.logger import Logosaurio
 from src.utils import timebox
-from src.utils.paths import get_observar_path
+from src.web.clients.router_client import router_client
 import config
 
 class NotifModem:
@@ -15,7 +13,6 @@ class NotifModem:
             'triggered': False,
             'description': "Router telef. puerto de escucha cerrado"
         }
-        self.observar_file_path = get_observar_path()
     
     def evaluate_condition(self) -> bool:
         """
@@ -23,12 +20,12 @@ class NotifModem:
         Retorna True si la alarma debe ser disparada, False en caso contrario.
         """
         modem_status = self._get_modem_status()
-        is_disconnected = modem_status == "desconectado"
+        is_disconnected = modem_status == "cerrado"
 
         if is_disconnected:
             if self.state['start_time'] is None:
                 self.state['start_time'] = timebox.utc_now()
-                self.logger.log("Alarma potencial: Router Modem desconectado. Iniciando conteo.", origen="NOTIF/MODEM")
+                self.logger.log("Alarma potencial: Router Modem con puerto cerrado. Iniciando conteo.", origen="NOTIF/MODEM")
             
             sustained_duration = timebox.utc_now() - self.state['start_time']
             min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
@@ -38,22 +35,17 @@ class NotifModem:
                 return True
         else:
             if self.state['start_time'] is not None:
-                self.logger.log("Alarma de router modem resuelta (reconectado).", origen="NOTIF/MODEM")
+                self.logger.log("Alarma de router modem resuelta (puerto abierto).", origen="NOTIF/MODEM")
             self.state['start_time'] = None
             self.state['triggered'] = False
 
         return False
 
     def _get_modem_status(self) -> str:
-        """Lee el estado del modem del archivo observar.json."""
+        """Consulta router-telef-service para conocer el estado."""
         try:
-            if not os.path.exists(self.observar_file_path):
-                self.logger.log(f"El archivo {self.observar_file_path} no existe. Asumiendo modem conectado.", origen="NOTIF/MODEM")
-                return "conectado"
-            
-            with open(self.observar_file_path, 'r') as f:
-                data = json.load(f)
-                return data.get('ip200_estado', "conectado")
-        except (IOError, json.JSONDecodeError) as e:
-            self.logger.log(f"ERROR al leer el estado del modem de observar.json: {e}. Asumiendo conectado.", origen="NOTIF/MODEM")
-            return "conectado"
+            status = router_client.get_status()
+            return str(status.get("state", "cerrado"))
+        except Exception as e:
+            self.logger.log(f"ERROR consultando router-telef-service: {e}. Asumiendo puerto cerrado.", origen="NOTIF/MODEM")
+            return "cerrado"

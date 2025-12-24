@@ -8,10 +8,10 @@ import queue
 from typing import Optional, Tuple
 from src.logger import Logosaurio
 from src.utils import timebox
-from src.utils.paths import load_observar_key
 from src.servicios.email.mensagelo_client import MensageloClient
 from src.servicios.mqtt import mqtt_event_bus
 from src.web.clients.modbus_client import modbus_client
+from src.web.clients.router_client import router_client
 import config
 
 REQ_PREFIX = config.MQTT_RPC_REQ_ROOT
@@ -101,9 +101,14 @@ class MqttRequestRouter:
 
     def _handle_get_modem_status(self, corr: str, reply_to: str):
         """
-        devuelve estado del modem desde observar.json -> ip200_estado
+        devuelve estado del modem consultando router-telef-service
         """
-        estado = str(load_observar_key("ip200_estado", "conectado"))
+        try:
+            status_data = router_client.get_status()
+            estado = str(status_data.get("state", "desconocido"))
+        except Exception as exc:
+            estado = "desconocido"
+            self.log.log(f"RPC modem status fallo: {exc}", origen=self._origen)
         data = {"ts": timebox.utc_iso(), "estado": estado}
         self._emit_ok(corr, reply_to, "get_modem_status", data)
 

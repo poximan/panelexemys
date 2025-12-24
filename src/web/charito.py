@@ -10,10 +10,10 @@ from dash.dependencies import Input, Output
 
 from src.utils import timebox
 from src.web.clients.charito_client import CharitoClient
+import config
 
 IPV4_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
 
-REFRESH_INTERVAL_MS = int(os.getenv("CHARITO_REFRESH_INTERVAL_MS", "10000"))
 STALE_THRESHOLD_SECONDS = int(os.getenv("CHARITO_STALE_THRESHOLD_SECONDS", "180"))
 
 
@@ -23,7 +23,7 @@ def get_charito_layout() -> html.Div:
             html.H1("charo-daemon", className="main-title"),
             html.Div(id="charito-last-update", className="info-message"),
             html.Div(id="charito-grid", className="charito-grid"),
-            dcc.Interval(id="charito-interval", interval=REFRESH_INTERVAL_MS, n_intervals=0),
+            dcc.Interval(id="charito-interval", interval=config.DASH_REFRESH_SECONDS, n_intervals=0),
         ],
     )
 

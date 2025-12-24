@@ -1,12 +1,11 @@
 from dash import html, dcc
 from dash.dependencies import Input, Output
-import dash_daq as daq
-from src.utils.paths import load_observar_key
 import config
 
 from src.web.dashboard.middleware_kpi import get_kpi_panel_layout
 from src.web.dashboard.middleware_histograma import get_controls_and_graph_layout
 from src.web.dashboard.middleware_tabla import get_main_data_table_layout
+from src.web.clients.router_client import router_client
 
 def get_dashboard(db_grd_descriptions, initial_grd_value):
     """
@@ -25,11 +24,15 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
                     children=[
                         html.P(
                             children=[
-                                "estado [200.63.163.36:40000] = ",
+                                html.Span(
+                                    id='tcp-status-label',
+                                    children="estado [sin datos] = ",
+                                    style={'marginRight': '5px'}
+                                ),
                                 html.Span(
                                     id='tcp-status-text',
                                     children="desconocido",
-                                    style={'marginLeft': '5px', 'fontWeight': 'bold'}
+                                    style={'fontWeight': 'bold'}
                                 )
                             ],
                             style={'fontSize': '1.2rem', 'fontFamily': 'Inter, sans-serif', 'margin': '0', 'marginRight': 'auto'}
@@ -56,7 +59,7 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
 
         dcc.Interval(
             id='interval-component',
-            interval=config.DASHBOARD_REFRESH_INTERVAL_MS,
+            interval=config.DASH_REFRESH_SECONDS,
             n_intervals=0
         )
     ])
@@ -66,15 +69,18 @@ def register_dashboard_callbacks(app):
     registra callbacks del dashboard
     """
     @app.callback(
+        Output('tcp-status-label', 'children'),
         Output('tcp-status-text', 'children'),
         Input('interval-component', 'n_intervals')
     )
     def update_tcp_status(_n_intervals):
         """
-        actualiza texto de estado tcp leyendo observar.json -> ip200_estado
+        Consulta router-telef-service para conocer el estado actual del puerto.
         """
         try:
-            status = str(load_observar_key("ip200_estado", "desconectado"))
-            return status
+            status_data = router_client.get_status()
+            label = f"estado [{status_data['ip']}:{status_data['port']}] = "
+            state = str(status_data.get("state", "desconocido"))
+            return label, state
         except Exception:
-            return "desconectado"
+            return "estado [sin datos] = ", "desconocido"

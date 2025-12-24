@@ -19,8 +19,8 @@ STATUS_FILE = os.path.join(SCRIPT_DIR, 'estado_broker.txt')  # reservado si quer
 
 
 def get_broker_layout():
-    status_interval_ms = getattr(config, 'BROKER_STATUS_REFRESH_INTERVAL_MS', 3000)
-    dash_interval_ms = getattr(config, 'DASHBOARD_REFRESH_INTERVAL_MS', 5000)
+    status_interval_ms = config.DASH_REFRESH_SECONDS
+    dash_interval_ms = config.DASH_REFRESH_SECONDS
     initial_toggle = bool(load_observar_key("broker_conectar", True))
     if initial_toggle:
         try:
@@ -97,7 +97,7 @@ def get_broker_layout():
                         ], className='mb-1'),
                         dcc.Input(
                             id='payload-modem',
-                            value=json.dumps({"estado": "conectado"}, ensure_ascii=False),
+                            value=json.dumps({"estado": "abierto"}, ensure_ascii=False),
                             style={'width': '100%'}
                         ),
                         html.Button(
@@ -362,3 +362,4 @@ def register_broker_callbacks(app: dash.Dash):
         if status == 'conectando':
             return 'status-circle status-connecting'
         return 'status-circle status-disconnected'
+
