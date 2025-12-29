@@ -1191,3 +1191,31 @@
     background-color: #d35400;
     color: #fff;
 }
+
+.ge-status-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 16px 24px;
+}
+
+.ge-status-text {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.ge-led-marcha {
+    background-color: #28a745;
+}
+
+.ge-led-parado {
+    background-color: #007bff;
+}
+
+.ge-led-unknown {
+    background-color: #6c757d;
+}

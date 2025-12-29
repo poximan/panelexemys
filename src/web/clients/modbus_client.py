@@ -67,5 +67,8 @@ class ModbusMiddlewareHttpClient:
         data = self._request("POST", "/api/reles/observer", {"enabled": bool(enabled)})
         return bool(data.get("enabled", False))
 
+    def get_ge_status(self) -> Dict[str, Any]:
+        return self._request("GET", "/api/ge/status")
+
 
 modbus_client = ModbusMiddlewareHttpClient()
