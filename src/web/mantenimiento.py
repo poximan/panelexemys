@@ -7,10 +7,45 @@ from dash.dependencies import Input, Output
 import config
 from src.web.clients.modbus_client import modbus_client
 
+PUBLIC_BASE_URL = config.PUBLIC_BASE_URL
+
+PORT_MAPPINGS = [
+    {
+        "servicio": "panelexemys",
+        "interno": "cont-panelexemys:8052 (http)",
+        "externo": f"{PUBLIC_BASE_URL}/dash/",
+        "localhost": "http://localhost:8052",
+    },
+    {
+        "servicio": "pve-service",
+        "interno": "cont-pve-service:8083 (http)",
+        "externo": f"{PUBLIC_BASE_URL}/pve/api/pve/state",
+        "localhost": "http://localhost:8083/api/pve/state",
+    },
+    {
+        "servicio": "modbus-mw-service",
+        "interno": "cont-modbus-mw-service:8084 (http)",
+        "externo": f"{PUBLIC_BASE_URL}/api/",
+        "localhost": "http://localhost:8084",
+    },
+    {
+        "servicio": "router-telef-service",
+        "interno": "cont-router-telef-service:8086 (http)",
+        "externo": f"{PUBLIC_BASE_URL}/router/status",
+        "localhost": "http://localhost:8086/status",
+    },
+    {
+        "servicio": "scada-citec-service",
+        "interno": "cont-scada-citec-service:8094 (http)",
+        "externo": f"{PUBLIC_BASE_URL}/scada/",
+        "localhost": "http://localhost:8094",
+    },
+]
+
 
 def get_mantenimiento_layout() -> html.Div:
     """
-    Layout de la pestaña de mantenimiento con estado del GE, topología e iframe del repositorio.
+    Layout de la pestaña de mantenimiento con estado del GE, topología, mapeos de puertos e iframe del repositorio.
     """
     return html.Div(
         children=[
@@ -48,25 +83,41 @@ def get_mantenimiento_layout() -> html.Div:
             ),
             html.Div(
                 children=[
-                    html.H2("Repositorio HTTP interno", className="sub-title"),
-                    html.Iframe(
-                        src="/repohttp/",
-                        className="repohttp-frame",
-                        style={
-                            "width": "100%",
-                            "height": "640px",
-                            "border": "1px solid #d9d9d9",
-                            "borderRadius": "8px",
-                            "backgroundColor": "#ffffff",
-                        },
-                        title="Repositorio HTTP",
+                    html.H2("Mapeo de puertos (docker <-> localhost <-> https)", className="sub-title"),
+                    html.Table(
+                        className="port-mapping-table",
+                        children=[
+                            html.Thead(
+                                html.Tr(
+                                    [
+                                        html.Th("servicio"),
+                                        html.Th("docker interno"),
+                                        html.Th("https publico"),
+                                        html.Th("localhost pruebas"),
+                                    ]
+                                )
+                            ),
+                            html.Tbody(
+                                [
+                                    html.Tr(
+                                        [
+                                            html.Td(item["servicio"]),
+                                            html.Td(item["interno"]),
+                                            html.Td(item["externo"]),
+                                            html.Td(item["localhost"]),
+                                        ]
+                                    )
+                                    for item in PORT_MAPPINGS
+                                ]
+                            ),
+                        ],
                     ),
                 ],
-                style={"marginTop": "24px"},
+                style={"marginBottom": "32px"},
             ),
             dcc.Interval(
                 id="ge-emar-interval",
-                interval=getattr(config, "DASH_REFRESH_SECONDS", 10000),
+                interval=config.DASH_REFRESH_SECONDS,
                 n_intervals=0,
             ),
         ]

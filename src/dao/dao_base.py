@@ -1,18 +1,52 @@
-import sqlite3
 import os
+import sqlite3
 import threading
-import config # Importa la configuracion
+from pathlib import Path
 
-# Rutas de la base de datos usando config.py
-DATABASE_DIR = config.DATABASE_DIR
-DATABASE_FILE = os.path.join(DATABASE_DIR, config.DATABASE_NAME)
 
-# Bloqueo para asegurar la seguridad de los hilos al escribir/leer en la base de datos.
-db_lock = threading.RLock()                     # Usar RLock para permitir bloqueos anidados
+def _pick_db_path() -> Path:
+    explicit = os.getenv("PANELEXEMYS_DB_PATH")
+    if explicit and explicit.strip():
+        return Path(explicit)
 
-def get_db_connection():
-    """Crea y retorna una conexion a la base de datos."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    conn.row_factory = sqlite3.Row              # Permite acceder a columnas por nombre
-    conn.execute("PRAGMA foreign_keys = ON;")   # Asegura que las FK esten habilitadas en cada conexion
+    data_dir = os.getenv("PANELEXEMYS_DATA_DIR")
+    if data_dir and data_dir.strip():
+        return Path(data_dir) / "panelexemys.db"
+
+    raise EnvironmentError("Falta variable de entorno obligatoria: PANELEXEMYS_DB_PATH o PANELEXEMYS_DATA_DIR")
+
+
+def _safe_path(path: Path) -> Path:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+    except (PermissionError, FileNotFoundError) as exc:
+        raise EnvironmentError(f"No se pudo crear el directorio de la base: {exc}") from exc
+
+
+_db_path = _safe_path(_pick_db_path())
+
+_connection_lock = threading.RLock()
+
+
+def get_db_path() -> Path:
+    return _db_path
+
+
+def _configure_connection(conn: sqlite3.Connection) -> sqlite3.Connection:
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    conn.execute("PRAGMA foreign_keys=ON;")
     return conn
+
+
+def get_db_connection() -> sqlite3.Connection:
+    conn = sqlite3.connect(_db_path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return _configure_connection(conn)
+
+
+def with_connection(fn, *args, **kwargs):
+    with _connection_lock:
+        with get_db_connection() as conn:
+            return fn(conn, *args, **kwargs)

@@ -5,7 +5,6 @@ from dash.dependencies import Input, Output
 from flask import has_request_context, request
 from src.web.clients.modbus_client import modbus_client
 import config
-import os
 
 from src.web.dashboard.middleware_dash import get_dashboard, register_dashboard_callbacks
 from src.web.dashboard.middleware_kpi import register_kpi_panel_callbacks
@@ -22,7 +21,9 @@ from src.web.broker.broker_view import (
 from src.web.proxmox import get_proxmox_layout, register_proxmox_callbacks
 from src.web.charito import get_charito_layout, register_charito_callbacks
 
-api_key = os.getenv("API_KEY")
+import config
+
+api_key = config.MENSAGELO_API_KEY
 BASE = "/dash"
 COOKIE_NAME = "panelexemys_mode"
 MODE_SECURE = "secure"
@@ -80,7 +81,6 @@ def configure_dash_app(
     mantenimiento_layout = get_mantenimiento_layout()
     email_layout = get_email_layout()
     broker_layout = get_broker_layout()
-    proxmox_layout = get_proxmox_layout()
     charito_layout = get_charito_layout()
 
     def serve_layout():
@@ -91,9 +91,22 @@ def configure_dash_app(
             children=[
                 dcc.Location(id="url", refresh=False),
                 html.Div(
-                    className="navbar",
-                    id="navbar-links-container",
-                    children=navbar_links,
+                    className="navbar-wrapper",
+                    children=[
+                        html.Button(
+                            "\u2630",
+                            id="nav-toggle",
+                            className="nav-toggle",
+                            title="Menu",
+                            n_clicks=0,
+                        ),
+                        html.Div(
+                            className="navbar",
+                            id="navbar-links-container",
+                            children=navbar_links,
+                        ),
+                        html.Div(id="nav-overlay", className="nav-overlay"),
+                    ],
                 ),
                 html.Hr(className="navbar-separator"),
                 html.Div(id="page-content"),
@@ -110,7 +123,7 @@ def configure_dash_app(
 
     public_views = {
         f"{BASE}/email": email_layout,
-        f"{BASE}/proxmox": proxmox_layout,
+        f"{BASE}/proxmox": get_proxmox_layout,
         f"{BASE}/charito": charito_layout,
     }
 
@@ -126,10 +139,12 @@ def configure_dash_app(
         if current_path in protected_views:
             if mode != MODE_PROTECTED:
                 return html.Div("Modo protegido requerido para esta pestana.", className="error-page")
-            return protected_views[current_path]
+            view = protected_views[current_path]
+            return view() if callable(view) else view
 
         if current_path in public_views:
-            return public_views[current_path]
+            view = public_views[current_path]
+            return view() if callable(view) else view
 
         if current_path == BASE:
             return dashboard_layout

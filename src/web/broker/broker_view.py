@@ -7,6 +7,7 @@ from queue import Queue, Empty
 import json
 import config
 import dash_daq as daq
+from src.logger import logger
 from src.utils import timebox
 from src.utils.paths import load_observar_key, update_observar_key
 
@@ -187,12 +188,17 @@ def _prepare_payload_with_ts(raw_value: str, context: str, required_keys: tuple[
     """
     obj = json.loads(raw_value)
     if not isinstance(obj, dict):
-        print(f"[BROKER/PUBLISH] {context}: payload debe ser objeto JSON. Recibido {type(obj).__name__}")
+        logger.error(
+            "%s: payload debe ser objeto JSON. Recibido %s",
+            context,
+            type(obj).__name__,
+            origin="BROKER/PUBLISH",
+        )
         raise ValueError(f"{context}: payload debe ser objeto JSON")
 
     missing = [key for key in required_keys if key not in obj]
     if missing:
-        print(f"[BROKER/PUBLISH] {context}: faltan claves obligatorias {missing}")
+        logger.error("%s: faltan claves obligatorias %s", context, missing, origin="BROKER/PUBLISH")
         raise ValueError(f"{context}: faltan claves obligatorias {missing}")
 
     obj["ts"] = timebox.utc_iso()
@@ -258,8 +264,8 @@ def register_broker_callbacks(app: dash.Dash):
             return "RECONNECTING"
 
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        qos = int(getattr(config, 'MQTT_PUBLISH_QOS_STATE', 1))
-        retain = bool(getattr(config, 'MQTT_PUBLISH_RETAIN_STATE', True))
+        qos = int(config.MQTT_PUBLISH_QOS_STATE)
+        retain = bool(config.MQTT_PUBLISH_RETAIN_STATE)
 
         try:
             if button_id == 'btn-publish-grado':

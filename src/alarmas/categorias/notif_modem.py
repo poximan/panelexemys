@@ -25,7 +25,7 @@ class NotifModem:
         if is_disconnected:
             if self.state['start_time'] is None:
                 self.state['start_time'] = timebox.utc_now()
-                self.logger.log("Alarma potencial: Router Modem con puerto cerrado. Iniciando conteo.", origen="NOTIF/MODEM")
+                self.logger.log("Alarma potencial: Router Modem con puerto cerrado. Iniciando conteo.", origin="NOTIF/MODEM")
             
             sustained_duration = timebox.utc_now() - self.state['start_time']
             min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
@@ -35,7 +35,7 @@ class NotifModem:
                 return True
         else:
             if self.state['start_time'] is not None:
-                self.logger.log("Alarma de router modem resuelta (puerto abierto).", origen="NOTIF/MODEM")
+                self.logger.log("Alarma de router modem resuelta (puerto abierto).", origin="NOTIF/MODEM")
             self.state['start_time'] = None
             self.state['triggered'] = False
 
@@ -47,5 +47,5 @@ class NotifModem:
             status = router_client.get_status()
             return str(status.get("state", "cerrado"))
         except Exception as e:
-            self.logger.log(f"ERROR consultando router-telef-service: {e}. Asumiendo puerto cerrado.", origen="NOTIF/MODEM")
+            self.logger.log(f"ERROR consultando router-telef-service: {e}. Asumiendo puerto cerrado.", origin="NOTIF/MODEM")
             return "cerrado"

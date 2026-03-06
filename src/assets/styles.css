@@ -49,25 +49,23 @@
 }
 
 /* --- Estilos para la Barra de Navegacion SPA --- */
+.navbar-wrapper {
+    position: relative;
+}
+
 .navbar {
     display: flex;
     justify-content: flex-start;
-    /* Alinea los enlaces a la izquierda */
     align-items: center;
     background-color: #34495e;
-    /* Un tono oscuro y profesional */
     padding: 10px 20px;
     margin-bottom: 20px;
-    /* Espacio debajo de la navbar */
     border-radius: 8px 8px 0 0;
-    /* Bordes redondeados en la parte superior */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    /* Sombra mas pronunciada para la barra */
     position: sticky;
-    /* Fija la barra de navegacion en la parte superior */
     top: 0;
     z-index: 1000;
-    /* Asegura que este por encima de otros elementos */
+    gap: 12px;
 }
 
 .nav-link {
@@ -86,6 +84,29 @@
     background-color: #2c3e50;
     /* Un tono mas oscuro al pasar el raton */
     color: #ffffff;
+}
+
+.nav-toggle {
+    display: none;
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: #2c3e50;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: #fff;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    z-index: 1100;
+}
+
+.nav-overlay {
+    display: none;
+}
+
+body.nav-locked {
+    overflow: hidden;
 }
 
 .navbar-separator {
@@ -230,6 +251,8 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .main-graph-section {
@@ -239,6 +262,16 @@
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     padding: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.connected-graph-container {
+    width: 100%;
+}
+
+.connected-graph-container .js-plotly-plot {
+    width: 100% !important;
 }
 
 .control-label {
@@ -253,16 +286,24 @@
     margin-bottom: 15px;
 }
 
-.grd-id-dropdown .Select-control {
+#grd-id-dropdown,
+#grd-id-dropdown .Select,
+#grd-id-dropdown .Select-control,
+#grd-id-dropdown .Select-menu-outer {
+    width: 100%;
+    max-width: 100%;
+}
+
+#grd-id-dropdown .Select-control {
     border-color: #ccc;
     border-radius: 5px;
-    /* Bordes redondeados para el dropdown */
 }
 
 .time-buttons-wrapper-inner {
     display: flex;
     gap: 10px;
     margin-top: 10px;
+    flex-wrap: wrap;
 }
 
 .button-default {
@@ -362,6 +403,44 @@
 .data-table {
     width: 100%;
     border-collapse: collapse;
+}
+
+.email-health-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: stretch;
+}
+
+.email-health-item {
+    flex: 1 1 260px;
+    min-width: 220px;
+    background-color: #f8fafc;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.email-health-label {
+    font-weight: 400;
+    color: #34495e;
+}
+
+.email-health-value {
+    font-weight: 400;
+    color: #2c3e50;
+    text-transform: uppercase;
+}
+
+.email-health-value--ok {
+    color: #2e7d32;
+}
+
+.email-health-value--bad {
+    color: #c62828;
 }
 
 .table-header-cell {
@@ -1218,4 +1297,157 @@
 
 .ge-led-unknown {
     background-color: #6c757d;
+}
+
+/* --- Responsive Ajustes Generales --- */
+@media (max-width: 1200px) {
+    .main-app-container {
+        padding: 0 16px 32px;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 1024px) {
+    .kpi-panel-container {
+        flex-direction: column;
+    }
+
+    .gauge-graph-container,
+    .traffic-light-container,
+    .disconnected-list-container {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .controls-and-graph-container {
+        flex-direction: column;
+    }
+
+    .controls-panel,
+    .main-graph-section {
+        flex: 1 1 100%;
+        min-width: auto;
+    }
+
+    .proxmox-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .nav-toggle {
+        display: block;
+    }
+
+    .navbar {
+        position: fixed;
+        inset: 0 0 auto auto;
+        flex-direction: column;
+        align-items: flex-start;
+        width: fit-content;
+        max-width: 85vw;
+        min-width: 200px;
+        height: 100vh;
+        top: 0;
+        right: 0;
+        margin: 0;
+        border-radius: 0;
+        gap: 0;
+        padding: 60px 24px;
+        transition: transform 0.3s ease;
+        transform: translateX(100%);
+    }
+
+    .navbar .nav-link {
+        width: fit-content;
+        margin: 4px 0;
+        white-space: nowrap;
+    }
+
+    .navbar-wrapper.mobile-nav-open .navbar {
+        transform: translateX(0);
+    }
+
+    .nav-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 900;
+    }
+
+    .navbar-wrapper.mobile-nav-open .nav-overlay {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+.navbar-wrapper.mobile-nav-open {
+    overflow: hidden;
+}
+
+    .navbar-separator {
+        visibility: hidden;
+    }
+
+    .kpi-panel-container,
+    .controls-and-graph-container {
+        gap: 16px;
+    }
+}
+
+@media (max-width: 700px) {
+    header h1,
+    .main-title {
+        font-size: 2rem;
+    }
+
+    .modem-link {
+        margin-top: -20px;
+    }
+
+    .proxmox-card {
+        padding: 18px;
+    }
+
+    .status-board,
+    .reles-faults-grid-container {
+        grid-template-columns: 1fr;
+    }
+
+    .time-buttons-wrapper-inner {
+        flex-direction: column;
+    }
+
+    .time-buttons-wrapper-inner .button-default,
+    .time-buttons-wrapper-inner .button-active,
+    .pagination-controls-container {
+        width: 100%;
+    }
+
+    .pagination-controls-container {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 520px) {
+    .main-app-container {
+        padding: 0 12px 24px;
+    }
+
+    .nav-toggle {
+        right: 12px;
+    }
+
+    .controls-panel,
+    .main-graph-section,
+    .kpi-item {
+        padding: 16px;
+    }
+
+    .proxmox-card {
+        gap: 14px;
+    }
 }

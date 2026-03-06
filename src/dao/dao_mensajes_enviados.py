@@ -1,46 +1,74 @@
-import sqlite3
-from .dao_base import get_db_connection, db_lock # Asegurate de que db_lock este definido y funcione correctamente
+from __future__ import annotations
+
+import json
+import threading
+from typing import Sequence
+
+from .dao_base import get_db_connection, with_connection
+
 
 class MensajesEnviadosDAO:
-    def insert_sent_message(self, subject: str, body: str, timestamp: str, message_type: str, recipients: str | list[str], success: bool):
-        """
-        Inserta un registro de un email que se intento enviar en la tabla 'mensajes_enviados'.
-        La columna 'recipient' almacenara todos los destinatarios como una cadena separada por comas.
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._ensure_schema()
 
-        Args:
-            subject (str): El asunto del email.
-            body (str): El cuerpo del mensaje del email.
-            timestamp (str): La estampa de tiempo del momento de la insercion (formato YYYY-MM-DD HH:MM:SS).
-            message_type (str): Un identificador del tipo de mensaje (ej. 'global_connectivity_alarm', 'individual_grd_alarm_X').
-            recipients (str | list[str]): El/los destinatario(s) del email. Se convertira a una cadena unica.
-            success (bool): True si el email se envio con exito, False en caso contrario.
-        """
-        conn = None
-        
-        # Convertir la lista de destinatarios en una sola cadena separada por comas
-        if isinstance(recipients, list):
-            recipients_str = ", ".join(recipients)
+    def _ensure_schema(self) -> None:
+        def _init(conn):
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mensajes_enviados (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    message_type TEXT NOT NULL,
+                    recipients TEXT NOT NULL,
+                    success INTEGER NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                );
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_mensajes_ts ON mensajes_enviados(ts);"
+            )
+
+        with self._lock:
+            with_connection(_init)
+
+    def insert_sent_message(
+        self,
+        subject: str,
+        body: str,
+        timestamp: str,
+        message_type: str,
+        recipients: Sequence[str] | str,
+        success: bool,
+    ) -> None:
+        if isinstance(recipients, str):
+            recipients_serialized = recipients
         else:
-            recipients_str = recipients # Ya es una cadena
+            recipients_serialized = json.dumps(list(recipients))
 
-        with db_lock:
-            try:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    INSERT INTO mensajes_enviados (subject, body, timestamp, message_type, recipient, success)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (subject, body, timestamp, message_type, recipients_str, 1 if success else 0) # SQLite usa 1 para True, 0 para False
-                )
-                conn.commit()
-                print(f"Registro de email insertado en DB. Asunto: '{subject}'. Destinatario(s): '{recipients_str}'")
-            except sqlite3.Error as e:
-                print(f"ERROR al insertar registro de email en DB: {e}")
-            finally:
-                if conn:
-                    conn.close()
+        payload = (
+            timestamp,
+            subject[:512],
+            body[:4096],
+            message_type[:128],
+            recipients_serialized,
+            int(bool(success)),
+        )
 
-# Instancia de la clase para usar sus metodos
+        def _insert(conn):
+            conn.execute(
+                """
+                INSERT INTO mensajes_enviados (ts, subject, body, message_type, recipients, success)
+                VALUES (?, ?, ?, ?, ?, ?);
+                """,
+                payload,
+            )
+
+        with self._lock:
+            with_connection(_insert)
+
+
 mensajes_enviados_dao = MensajesEnviadosDAO()

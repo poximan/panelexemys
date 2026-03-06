@@ -40,7 +40,7 @@ def publish_proxmox_state(payload: dict) -> None:
     payload: {"ts":"...","status":"online|offline","node":"...","vms":[...],"missing":[...],"error":str|None}
     """
     _safe_publish(
-        getattr(config, "MQTT_TOPIC_PROXMOX_ESTADO", "exemys/estado/proxmox"),
+        config.MQTT_TOPIC_PROXMOX_ESTADO,
         json.dumps(payload, ensure_ascii=False),
         qos=config.MQTT_PUBLISH_QOS_STATE,
         retain=config.MQTT_PUBLISH_RETAIN_STATE,

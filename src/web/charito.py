@@ -1,20 +1,18 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from typing import Any, Dict, List
-import os
 import re
+from typing import Any, Dict, List
 
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 
+import config
 from src.utils import timebox
 from src.web.clients.charito_client import CharitoClient
-import config
 
 IPV4_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
-
-STALE_THRESHOLD_SECONDS = int(os.getenv("CHARITO_STALE_THRESHOLD_SECONDS", "180"))
+STALE_THRESHOLD_SECONDS = int(config.CHARITO_STALE_THRESHOLD_SECONDS)
 
 
 def get_charito_layout() -> html.Div:
@@ -29,8 +27,7 @@ def get_charito_layout() -> html.Div:
 
 
 def register_charito_callbacks(app: dash.Dash) -> None:
-    base_url = os.getenv("CHARITO_API_BASE", "http://charito-service:8082")
-    client = CharitoClient(base_url)
+    client = CharitoClient(config.CHARITO_API_BASE)
 
     @app.callback(
         Output("charito-grid", "children"),
@@ -75,10 +72,11 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
     alias = item.get("alias") or ""
     instance_id = item.get("instanceId") or alias or "sin-id"
     status_raw = (item.get("status") or "unknown").lower()
-    status_label = {
-        "online": "Online",
-        "offline": "Offline",
-    }.get(status_raw, "Desconocido")
+    data_status = str(item.get("dataStatus") or "").strip().lower()
+    data_error = str(item.get("dataError") or "").strip()
+    status_label = {"online": "Online", "offline": "Offline"}.get(status_raw, "Desconocido")
+    if status_raw == "online" and data_status == "no_useful_metrics":
+        status_label = "Online sin metricas"
 
     card_cls = ["charito-card"]
     status_cls = "charito-status-pill"
@@ -86,17 +84,11 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
         card_cls.append("charito-card-stale")
         status_cls += " charito-status-pill--offline"
 
-    avg_cpu_value = _ratio(item.get("averageCpuLoad"))
-    avg_mem_value = _ratio(item.get("averageMemoryUsageRatio"))
-    avg_cpu = _format_percent(item.get("averageCpuLoad"))
-    avg_mem = _format_percent(item.get("averageMemoryUsageRatio"))
-
-    latest = item.get("latestSample") or {}
-    latest_cpu_value = _ratio(item.get("cpuLoadInstant"))
-    latest_cpu = _format_percent(item.get("cpuLoadInstant"))
-    latest_mem_value = _ratio(item.get("memoryUsageInstant"))
-    latest_mem = _format_percent(item.get("memoryUsageInstant"))
-    latest_temp = _format_number(item.get("cpuTemperatureInstant"))
+    cpu_value = _ratio(item.get("cpuLoad"))
+    mem_value = _ratio(item.get("memoryUsageRatio"))
+    cpu_label = _format_percent(item.get("cpuLoad"))
+    mem_label = _format_percent(item.get("memoryUsageRatio"))
+    latest_temp = _format_number(item.get("cpuTemperatureCelsius"))
 
     updated_at = _format_ts(item.get("receivedAt") or item.get("generatedAt"))
     samples = _format_samples(item.get("samples"))
@@ -109,7 +101,12 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
     ]
     if alias and alias != instance_id:
         title_children.append(html.Div(alias, className="charito-card-alias"))
-    title_children.append(html.Div(f"{samples} • {window_label}", className="charito-card-subtitle"))
+    title_children.append(html.Div(f"{samples} | {window_label}", className="charito-card-subtitle"))
+    if status_raw == "online" and data_status == "no_useful_metrics":
+        issue_label = "Metricas no disponibles"
+        if data_error:
+            issue_label = f"{issue_label}: {data_error}"
+        title_children.append(html.Div(issue_label, className="charito-card-subtitle"))
 
     header = html.Div(
         className="charito-card-header",
@@ -128,10 +125,8 @@ def _build_card(item: Dict[str, Any]) -> html.Div:
     metrics_section = html.Div(
         className="charito-progress-section",
         children=[
-            _progress_block("CPU promedio", avg_cpu, avg_cpu_value, "cpu"),
-            _progress_block("CPU instantanea", latest_cpu, latest_cpu_value, "cpu-instant"),
-            _progress_block("MEM promedio", avg_mem, avg_mem_value, "mem"),
-            _progress_block("MEM instantanea", latest_mem, latest_mem_value, "mem-instant"),
+            _progress_block("CPU", cpu_label, cpu_value, "cpu"),
+            _progress_block("MEM", mem_label, mem_value, "mem"),
         ],
     )
 
@@ -293,7 +288,11 @@ def _format_number(value: Any) -> str:
 def _format_samples(value: Any) -> str:
     try:
         number = int(value)
-        return "1 muestra" if number <= 1 else f"{number} muestras"
+        if number == 1:
+            return "1 muestra"
+        if number >= 0:
+            return f"{number} muestras"
+        return "N/D muestras"
     except Exception:
         return "N/D muestras"
 

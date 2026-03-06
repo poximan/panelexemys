@@ -24,12 +24,9 @@ def _mensagelo_smtp_check(logger: Logosaurio) -> Estado:
       - "desconectado" si status no 200 o body.status!="ok"
       - "desconocido" si faltan parametros de config
     """
-    base_url: Optional[str] = getattr(config, "MENSAGELO_BASE_URL", None)
-    api_key: Optional[str] = getattr(config, "MENSAGELO_API_KEY", None)
-    timeout: int = int(getattr(config, "MENSAGELO_TIMEOUT_SECONDS", 5))
-
-    if not base_url or not api_key:
-        return "desconocido"
+    base_url: Optional[str] = config.MENSAGELO_BASE_URL
+    api_key: Optional[str] = config.MENSAGELO_API_KEY
+    timeout: int = int(config.MENSAGELO_TIMEOUT_SECONDS)
 
     url = f"{base_url.rstrip('/')}/smtppostserv"
     headers = {"X-API-Key": api_key}
@@ -47,13 +44,13 @@ def _mensagelo_smtp_check(logger: Logosaurio) -> Estado:
             return "desconectado"
     except requests.Timeout:
         try:
-            logger.log("mensagelo /smtppostserv timeout", origen="EMAIL/CHK")
+            logger.log("mensagelo /smtppostserv timeout", origin="EMAIL/CHK")
         except Exception:
             pass
         return "desconectado"
     except Exception as e:
         try:
-            logger.log(f"mensagelo /smtppostserv excepcion: {e}", origen="EMAIL/CHK")
+            logger.log(f"mensagelo /smtppostserv excepcion: {e}", origin="EMAIL/CHK")
         except Exception:
             pass
         return "desconocido"
@@ -84,13 +81,13 @@ def _ping_host(host: str, logger: Logosaurio) -> Estado:
         return "conectado" if res.returncode == 0 else "desconectado"
     except subprocess.TimeoutExpired:
         try:
-            logger.log(f"Ping {host} timeout", origen="EMAIL/CHK")
+            logger.log(f"Ping {host} timeout", origin="EMAIL/CHK")
         except Exception:
             pass
         return "desconectado"
     except Exception as e:
         try:
-            logger.log(f"Ping {host} excepcion: {e}", origen="EMAIL/CHK")
+            logger.log(f"Ping {host} excepcion: {e}", origin="EMAIL/CHK")
         except Exception:
             pass
         return "desconocido"
@@ -139,12 +136,12 @@ def start_email_health_monitor(logger: Logosaurio, mqtt_manager) -> None:
                 )
                 last_payload = enriched_payload
             try:
-                logger.log(f"server_email_estado: {enriched_payload}", origen="EMAIL/CHK")
+                logger.log(f"server_email_estado: {enriched_payload}", origin="EMAIL/CHK")
             except Exception:
                 pass
         except Exception as e:
             try:
-                logger.log(f"persistencia observar.json error: {e}", origen="EMAIL/CHK")
+                logger.log(f"persistencia observar.json error: {e}", origin="EMAIL/CHK")
             except Exception:
                 pass
         finally:

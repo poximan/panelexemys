@@ -14,8 +14,8 @@ class ModbusMiddlewareHttpClient:
     """
 
     def __init__(self) -> None:
-        self.base_url = getattr(config, "MODBUS_MW_API_BASE", "http://modbus-mw-service:8084").rstrip("/")
-        self.timeout = int(getattr(config, "MODBUS_MW_HTTP_TIMEOUT", 5))
+        self.base_url = config.MODBUS_MW_API_BASE.rstrip("/")
+        self.timeout = int(config.MODBUS_MW_HTTP_TIMEOUT)
         self._session = requests.Session()
         self._lock = threading.RLock()
         self._descriptions_cache: Dict[int, str] | None = None

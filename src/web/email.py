@@ -23,50 +23,50 @@ def get_email_layout() -> html.Div:
                 className="kpi-item",
                 children=[
                     html.H2("Servidor de correo", className="sub-title"),
-                    html.Table(
-                        id="email-health-table",
-                        className="data-table",
+                    html.Div(
+                        className="email-health-grid",
                         children=[
-                            html.Thead(
-                                html.Tr(
-                                    [
-                                        html.Th(
-                                            "SMTP en host LAN (post.servicoop.com)",
-                                            className="table-header-cell",
-                                        ),
-                                        html.Th(
-                                            "Ping IPPUB gw local (servicoop.com.ar)",
-                                            className="table-header-cell",
-                                        ),
-                                        html.Th(
-                                            "Ping IPPUB serv remoto (mail.servicoop.com)",
-                                            className="table-header-cell",
-                                        ),
-                                    ]
-                                )
+                            html.Div(
+                                className="email-health-item",
+                                children=[
+                                    html.Div(
+                                        "SMTP en host LAN (post.servicoop.com)",
+                                        className="email-health-label",
+                                    ),
+                                    html.Div(
+                                        "desconocido",
+                                        id="cell-smtp",
+                                        className="email-health-value",
+                                    ),
+                                ],
                             ),
-                            html.Tbody(
-                                [
-                                    html.Tr(
-                                        [
-                                            html.Td(
-                                                "desconocido",
-                                                id="cell-smtp",
-                                                className="table-data-cell",
-                                            ),
-                                            html.Td(
-                                                "desconocido",
-                                                id="cell-ping-local",
-                                                className="table-data-cell",
-                                            ),
-                                            html.Td(
-                                                "desconocido",
-                                                id="cell-ping-remoto",
-                                                className="table-data-cell",
-                                            ),
-                                        ]
-                                    )
-                                ]
+                            html.Div(
+                                className="email-health-item",
+                                children=[
+                                    html.Div(
+                                        "Ping IPPUB gw local (servicoop.com.ar)",
+                                        className="email-health-label",
+                                    ),
+                                    html.Div(
+                                        "desconocido",
+                                        id="cell-ping-local",
+                                        className="email-health-value",
+                                    ),
+                                ],
+                            ),
+                            html.Div(
+                                className="email-health-item",
+                                children=[
+                                    html.Div(
+                                        "Ping IPPUB serv remoto (mail.servicoop.com)",
+                                        className="email-health-label",
+                                    ),
+                                    html.Div(
+                                        "desconocido",
+                                        id="cell-ping-remoto",
+                                        className="email-health-value",
+                                    ),
+                                ],
                             ),
                         ],
                     ),
@@ -181,8 +181,11 @@ def register_email_callbacks(app: dash.Dash, key) -> None:
 
     @app.callback(
         Output("cell-smtp", "children"),
+        Output("cell-smtp", "className"),
         Output("cell-ping-local", "children"),
+        Output("cell-ping-local", "className"),
         Output("cell-ping-remoto", "children"),
+        Output("cell-ping-remoto", "className"),
         Input("email-health-interval", "n_intervals"),
     )
     def update_email_health(_n_intervals: int):
@@ -193,7 +196,20 @@ def register_email_callbacks(app: dash.Dash, key) -> None:
         ping_local = estados.get("ping_local", "desconocido")
         ping_remoto = estados.get("ping_remoto", "desconocido")
 
-        return smtp, ping_local, ping_remoto
+        def status_class(value: str) -> str:
+            normalized = str(value).strip().lower()
+            if normalized == "conectado":
+                return "email-health-value email-health-value--ok"
+            return "email-health-value email-health-value--bad"
+
+        return (
+            smtp,
+            status_class(smtp),
+            ping_local,
+            status_class(ping_local),
+            ping_remoto,
+            status_class(ping_remoto),
+        )
 
 
 

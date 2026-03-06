@@ -31,12 +31,8 @@ class NotifProxmoxHost:
         offline = bool(error_text)
         stale_reason = ""
         ts = data.get("ts")
-        stale_limit = int(
-            max(
-                getattr(config, "PVE_STALE_THRESHOLD_SECONDS", getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20) * 3),
-                getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20),
-            )
-        )
+        stale_limit = int(config.PVE_POLL_INTERVAL_SECONDS) * 3
+        
         if not offline:
             dt = None
             if ts:
@@ -67,7 +63,7 @@ class NotifProxmoxHost:
                 self.state["last_error"] = error_text
                 self.logger.log(
                     f"Alarma potencial: hipervisor Proxmox inalcanzable. Motivo: {error_text}",
-                    origen="NOTIF/PVE_HOST",
+                    origin="NOTIF/PVE_HOST",
                 )
             else:
                 self.state["last_error"] = error_text or self.state.get("last_error", "")
@@ -77,13 +73,22 @@ class NotifProxmoxHost:
                 return True
         else:
             if self.state["start_time"] is not None:
-                self.logger.log("Alarma de hipervisor Proxmox resuelta.", origen="NOTIF/PVE_HOST")
+                self.logger.log("Alarma de hipervisor Proxmox resuelta.", origin="NOTIF/PVE_HOST")
             self.state = {"start_time": None, "triggered": False, "last_error": ""}
 
         return False
 
     def get_last_error(self) -> str:
         return self.state.get("last_error") or ""
+
+    def is_counting(self) -> bool:
+        return bool(self.state.get("start_time")) and not bool(self.state.get("triggered"))
+
+    def is_triggered(self) -> bool:
+        return bool(self.state.get("triggered"))
+
+    def allow_vm_processing(self) -> bool:
+        return self.is_triggered() or not self.is_counting()
 
 
 class NotifProxmoxVm:
@@ -95,7 +100,7 @@ class NotifProxmoxVm:
         self.logger = logger
         self.vm_states: Dict[int, Dict[str, Any]] = {}
 
-    def evaluate_condition(self, snapshot: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def evaluate_condition(self, snapshot: Dict[str, Any], allow_processing: bool = True) -> List[Dict[str, Any]]:
         """
         Retorna una lista de VMs que deben disparar alarma.
         """
@@ -106,7 +111,10 @@ class NotifProxmoxVm:
             # Cuando el hipervisor esta caido, se delega la alarma al monitor global.
             return []
 
-        configured_ids = [int(vmid) for vmid in getattr(config, "PVE_VHOST_IDS", [])]
+        if not allow_processing:
+            return []
+
+        configured_ids = [int(vmid) for vmid in config.PVE_VHOST_IDS]
         vm_map: Dict[int, Dict[str, Any]] = {}
         for item in snapshot.get("vms", []) or []:
             try:
@@ -146,7 +154,7 @@ class NotifProxmoxVm:
                     state["start_time"] = now
                     self.logger.log(
                         f"Alarma potencial: VM {vmid} ({name}) en estado '{status_raw}'. Iniciando conteo.",
-                        origen="NOTIF/PVE_VM",
+                        origin="NOTIF/PVE_VM",
                     )
 
                 if not state["triggered"] and now - state["start_time"] >= min_duration:
@@ -163,7 +171,7 @@ class NotifProxmoxVm:
                 if state["start_time"] is not None:
                     self.logger.log(
                         f"Alarma Proxmox resuelta: VM {vmid} ({name}) regresó a estado RUNNING.",
-                        origen="NOTIF/PVE_VM",
+                        origin="NOTIF/PVE_VM",
                     )
                 state["start_time"] = None
                 state["triggered"] = False

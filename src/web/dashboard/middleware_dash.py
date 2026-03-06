@@ -26,8 +26,7 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
                             children=[
                                 html.Span(
                                     id='tcp-status-label',
-                                    children="estado [sin datos] = ",
-                                    style={'marginRight': '5px'}
+                                    children="estado [sin datos] = "
                                 ),
                                 html.Span(
                                     id='tcp-status-text',
@@ -37,12 +36,29 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
                             ],
                             style={'fontSize': '1.2rem', 'fontFamily': 'Inter, sans-serif', 'margin': '0', 'marginRight': 'auto'}
                         ),
-                        html.A(
-                            "Visitar MODEM",
-                            href="http://192.168.11.1/wizard01.htm",
-                            target="_blank",
-                            className='modem-link',
-                            style={'margin': '0'}
+                        html.Div(
+                            style={
+                                'display': 'flex',
+                                'alignItems': 'center',
+                                'justifyContent': 'flex-end',
+                                'gap': '12px'
+                            },
+                            children=[
+                                html.A(
+                                    "Check desde afuera",
+                                    href="https://portchecker.co/",
+                                    target="_blank",
+                                    className='modem-link',
+                                    style={'margin': '0'}
+                                ),
+                                html.A(
+                                    "Visitar MODEM",
+                                    href="http://192.168.11.1/wizard01.htm",
+                                    target="_blank",
+                                    className='modem-link',
+                                    style={'margin': '0'}
+                                ),
+                            ]
                         ),
                     ]
                 )
@@ -50,13 +66,9 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
         ),
 
         get_kpi_panel_layout(),
-
         dcc.Store(id='time-window-state', data={'time_window': '1sem', 'page_number': 0, 'current_grd_id': initial_grd_value}),
-
         get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value),
-
         get_main_data_table_layout(),
-
         dcc.Interval(
             id='interval-component',
             interval=config.DASH_REFRESH_SECONDS,

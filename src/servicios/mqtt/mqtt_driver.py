@@ -31,10 +31,10 @@ class MqttDriver:
         if username is not None:
             self.client.username_pw_set(username, password)
 
-        will_topic = getattr(config, "MQTT_WILL_TOPIC", None)
-        will_payload = getattr(config, "MQTT_WILL_PAYLOAD", None)
-        will_qos = getattr(config, "MQTT_WILL_QOS", None)
-        will_retain = getattr(config, "MQTT_WILL_RETAIN", None)
+        will_topic = config.MQTT_WILL_TOPIC
+        will_payload = config.MQTT_WILL_PAYLOAD
+        will_qos = config.MQTT_WILL_QOS
+        will_retain = config.MQTT_WILL_RETAIN
         if will_topic:
             if will_payload is None or will_qos is None or will_retain is None:
                 raise ValueError("Configuracion LWT incompleta: defina payload/qos/retain")
@@ -42,8 +42,8 @@ class MqttDriver:
 
         if config.MQTT_BROKER_USE_TLS:
             ca = config.MQTT_BROKER_CA_CERT
-            certfile = getattr(config, "MQTT_CLIENT_CERTFILE", None)
-            keyfile = getattr(config, "MQTT_CLIENT_KEYFILE", None)
+            certfile = config.MQTT_CLIENT_CERTFILE
+            keyfile = config.MQTT_CLIENT_KEYFILE
             tls_insecure = config.MQTT_TLS_INSECURE
             self.client.tls_set(
                 ca_certs=ca,
@@ -53,7 +53,7 @@ class MqttDriver:
                 tls_version=ssl.PROTOCOL_TLS_CLIENT,
             )
             self.client.tls_insecure_set(tls_insecure)
-            self.log.log(f"TLS configurado (insecure={tls_insecure}).", origen=self._origen)
+            self.log.log(f"TLS configurado (insecure={tls_insecure}).", origin=self._origen)
 
         self.keepalive = int(config.MQTT_BROKER_KEEPALIVE)
         min_delay = int(config.MQTT_RECONNECT_DELAY_MIN)
@@ -114,27 +114,27 @@ class MqttDriver:
         if rc == 0:
             self._connected = True
             self._connected_event.set()
-            self.log.log("MQTT Driver: on_connect OK (rc=0).", origen=self._origen)
+            self.log.log("MQTT Driver: on_connect OK (rc=0).", origin=self._origen)
         else:
             self._connected = False
-            self.log.log(f"MQTT Driver: on_connect con error (rc={rc}).", origen=self._origen)
+            self.log.log(f"MQTT Driver: on_connect con error (rc={rc}).", origin=self._origen)
 
         for cb in self._extra_on_connect:
             try:
                 cb(client, userdata, flags, rc)
             except Exception as e:
-                self.log.log(f"MQTT Driver: error en callback externo on_connect: {e}", origen=self._origen)
+                self.log.log(f"MQTT Driver: error en callback externo on_connect: {e}", origin=self._origen)
 
     def _on_disconnect_internal(self, client, userdata, rc, *args):
         self._connected = False
         self._connected_event.clear()
-        self.log.log(f"MQTT Client Manager: on_disconnect (rc={rc}).", origen=self._origen)
+        self.log.log(f"MQTT Client Manager: on_disconnect (rc={rc}).", origin=self._origen)
 
         for cb in self._extra_on_disconnect:
             try:
                 cb(client, userdata, rc)
             except Exception as e:
-                self.log.log(f"MQTT Driver: error en callback externo on_disconnect: {e}", origen=self._origen)
+                self.log.log(f"MQTT Driver: error en callback externo on_disconnect: {e}", origin=self._origen)
 
     def _on_message_internal(self, client, userdata, msg):
         if self._extra_on_message is not None:
@@ -142,12 +142,12 @@ class MqttDriver:
                 self._extra_on_message(client, userdata, msg)
                 return
             except Exception as e:
-                self.log.log(f"MQTT Driver: error en callback externo on_message: {e}", origen=self._origen)
+                self.log.log(f"MQTT Driver: error en callback externo on_message: {e}", origin=self._origen)
         try:
             payload = msg.payload.decode(errors="replace")
         except Exception:
             payload = str(msg.payload)
-        self.log.log(f"MQTT mensaje: {msg.topic} -> {payload}", origen=self._origen)
+        self.log.log(f"MQTT mensaje: {msg.topic} -> {payload}", origin=self._origen)
 
     def register_on_connect(self, cb: Callable):
         self._extra_on_connect.append(cb)
@@ -165,13 +165,13 @@ class MqttDriver:
 
         self.log.log(
             f"MQTT Driver: Intentando conectar a {host}:{port} (keepalive={self.keepalive})",
-            origen=self._origen,
+            origin=self._origen,
         )
 
         try:
             self.client.connect_async(host, port, keepalive=self.keepalive)
         except Exception as e:
-            self.log.log(f"MQTT Driver: excepcion en connect_async: {e}", origen=self._origen)
+            self.log.log(f"MQTT Driver: excepcion en connect_async: {e}", origin=self._origen)
             return False
 
         if not self._loop_started:
@@ -179,17 +179,17 @@ class MqttDriver:
             self._loop_started = True
 
         if self._connected_event.wait(timeout=timeout):
-            self.log.log("MQTT Driver: Conexión confirmada por callback dentro del timeout.", origen=self._origen)
+            self.log.log("MQTT Driver: Conexión confirmada por callback dentro del timeout.", origin=self._origen)
             return True
 
-        self.log.log("MQTT Driver: Timeout esperando confirmacion de conexion.", origen=self._origen)
+        self.log.log("MQTT Driver: Timeout esperando confirmacion de conexion.", origin=self._origen)
         return False
 
     def disconnect(self):
         try:
             self.client.disconnect()
         except Exception as e:
-            self.log.log(f"MQTT Driver: error en disconnect(): {e}", origen=self._origen)
+            self.log.log(f"MQTT Driver: error en disconnect(): {e}", origin=self._origen)
         finally:
             if self._loop_started:
                 self.client.loop_stop()
@@ -199,23 +199,23 @@ class MqttDriver:
 
     def publish(self, topic: str, payload, qos: int = 0, retain: bool = False):
         if not self._connected:
-            self.log.log(f"MQTT Driver: publish abortado; cliente desconectado (topic={topic}).", origen=self._origen)
+            self.log.log(f"MQTT Driver: publish abortado; cliente desconectado (topic={topic}).", origin=self._origen)
             return
         try:
             res = self.client.publish(topic, payload, qos=qos, retain=retain)
-            self.log.log(f"MQTT Driver: publish('{topic}') -> {res.rc}", origen=self._origen)
+            self.log.log(f"MQTT Driver: publish('{topic}') -> {res.rc}", origin=self._origen)
         except Exception as e:
-            self.log.log(f"MQTT Driver: error publicando en '{topic}': {e}", origen=self._origen)
+            self.log.log(f"MQTT Driver: error publicando en '{topic}': {e}", origin=self._origen)
 
     def subscribe(self, topic: str, qos: int = 0):
         if not self._connected:
-            self.log.log(f"MQTT Driver: subscribe abortado; cliente desconectado (topic={topic}).", origen=self._origen)
+            self.log.log(f"MQTT Driver: subscribe abortado; cliente desconectado (topic={topic}).", origin=self._origen)
             return
         try:
             res = self.client.subscribe(topic, qos=qos)
-            self.log.log(f"MQTT Client Manager: subscribe('{topic}') -> {res}", origen=self._origen)
+            self.log.log(f"MQTT Client Manager: subscribe('{topic}') -> {res}", origin=self._origen)
         except Exception as e:
-            self.log.log(f"MQTT Driver: error al suscribirse a '{topic}': {e}", origen=self._origen)
+            self.log.log(f"MQTT Driver: error al suscribirse a '{topic}': {e}", origin=self._origen)
 
     def is_connected(self) -> bool:
         return self._connected

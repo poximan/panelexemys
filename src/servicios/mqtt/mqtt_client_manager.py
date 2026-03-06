@@ -20,9 +20,9 @@ class MqttClientManager:
 
         # Crear driver
         self.driver = MqttDriver(logger=self.log)
-        self._status_topic = getattr(config, "MQTT_SERVICE_STATUS_TOPIC", None)
-        self._status_qos = getattr(config, "MQTT_SERVICE_STATUS_QOS", 1)
-        self._status_retain = getattr(config, "MQTT_SERVICE_STATUS_RETAIN", True)
+        self._status_topic = config.MQTT_SERVICE_STATUS_TOPIC
+        self._status_qos = config.MQTT_SERVICE_STATUS_QOS
+        self._status_retain = config.MQTT_SERVICE_STATUS_RETAIN
 
         # Mensajes entrantes: por defecto una cola nueva
         self.msg_queue: "queue.Queue[Tuple[str, str]]" = queue.Queue()
@@ -50,10 +50,10 @@ class MqttClientManager:
 
         ok = self.driver.connect()
         if not ok:
-            self.log.log("MQTT Client Manager: No se pudo establecer conexion inicial.", origen=self._origen)
+            self.log.log("MQTT Client Manager: No se pudo establecer conexion inicial.", origin=self._origen)
             return False
         self._started = True
-        self.log.log("MQTT Client Manager: Conexion establecida correctamente.", origen=self._origen)
+        self.log.log("MQTT Client Manager: Conexion establecida correctamente.", origin=self._origen)
         return True
 
     def stop(self):
@@ -63,12 +63,12 @@ class MqttClientManager:
 
     # ----------------- Callbacks encadenados del driver
     def _on_driver_connect(self, client, userdata, flags, rc):
-        self.log.log("MQTT Client Manager: on_connect OK. Suscribiendo topicos...", origen=self._origen)
+        self.log.log("MQTT Client Manager: on_connect OK. Suscribiendo topicos...", origin=self._origen)
         try:
             for topic, qos in self.subscriptions:
                 self.driver.subscribe(topic, qos)
         except TypeError:
-            self.log.log("MQTT Client Manager: subscriptions no es iterable en _on_driver_connect.", origen=self._origen)
+            self.log.log("MQTT Client Manager: subscriptions no es iterable en _on_driver_connect.", origin=self._origen)
         self._publish_status(True, "connect")
 
     def _on_driver_disconnect(self, client, userdata, rc):
@@ -82,7 +82,7 @@ class MqttClientManager:
         except Exception:
             payload = str(msg.payload)
 
-        self.log.log(f"Mensaje en {msg.topic}: {payload}", origen=self._origen)
+        self.log.log(f"Mensaje en {msg.topic}: {payload}", origin=self._origen)
 
         try:
             self.msg_queue.put_nowait((msg.topic, payload))
@@ -94,7 +94,7 @@ class MqttClientManager:
                 try:
                     callback(msg.topic, payload)
                 except Exception as exc:
-                    self.log.log(f"MQTT Client Manager: listener error ({prefix}): {exc}", origen=self._origen)
+                    self.log.log(f"MQTT Client Manager: listener error ({prefix}): {exc}", origin=self._origen)
 
     # ----------------- API hacia el resto del sistema
     def publish(self, topic: str, payload, qos: int = 0, retain: bool = False):
@@ -151,4 +151,4 @@ class MqttClientManager:
                 retain=self._status_retain,
             )
         except Exception as exc:
-            self.log.log(f"No se pudo publicar estado del servicio: {exc}", origen=self._origen)
+            self.log.log(f"No se pudo publicar estado del servicio: {exc}", origin=self._origen)

@@ -4,7 +4,7 @@ from src.logger import Logosaurio
 from src.utils import timebox
 import config
 
-class NotifGlobal:
+class NotifMwGlobal:
     def __init__(self, logger: Logosaurio):
         self.logger = logger
         self.state: Dict[str, Any] = {
@@ -25,7 +25,7 @@ class NotifGlobal:
                 self.state['start_time'] = timebox.utc_now()
                 self.logger.log(
                     f"Alarma potencial: Conectividad global ({current_percentage:.2f}%) por debajo del {config.GLOBAL_THRESHOLD_ROJO}% - Iniciando conteo.", 
-                    origen="NOTIF/GBL"
+                    origin="NOTIF/GBL"
                 )
             sustained_duration = timebox.utc_now() - self.state['start_time']
             min_duration = timedelta(minutes=config.ALARM_MIN_SUSTAINED_DURATION_MINUTES)
@@ -37,7 +37,7 @@ class NotifGlobal:
             if self.state['start_time'] is not None:
                 self.logger.log(
                     f"Alarma de conectividad global resuelta. Conectividad actual: {current_percentage:.2f}%.", 
-                    origen="NOTIF/GBL"
+                    origin="NOTIF/GBL"
                 )
             self.state['start_time'] = None
             self.state['triggered'] = False

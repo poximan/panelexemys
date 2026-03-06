@@ -1,8 +1,7 @@
 import dash
-import os
 from dash import dcc, html
-from dash.dependencies import Input, Output
-import dash
+from dash.dependencies import Input, Output, State, ALL
+from dash.exceptions import PreventUpdate
 import dash_daq as daq
 import plotly.graph_objects as go
 from typing import Any, Dict, List, Optional
@@ -19,11 +18,7 @@ import config
 from src.utils import timebox
 
 
-DEFAULT_VIEW = getattr(config, "PVE_DASHBOARD_VIEW", "history").lower()
-
-
-def _default_view_preference() -> str:
-    return "historico" if DEFAULT_VIEW != "classic" else "vivo"
+_LAST_PROXMOX_SIGNATURE: str | None = None
 
 
 def _view_pref_to_bool(pref: str) -> bool:
@@ -35,7 +30,7 @@ def _bool_to_view_pref(value: bool) -> str:
 
 
 def _default_view_preference() -> str:
-    return "historico" if DEFAULT_VIEW != "classic" else "vivo"
+    return "historico"
 def _build_placeholder_card(message: str) -> html.Div:
     return html.Div(
         className="proxmox-card proxmox-card-placeholder",
@@ -303,6 +298,7 @@ def _build_history_chart(
         uirevision=f"vm-{vmid}-{metric_key}",
     )
 
+    graph_id = {"type": "proxmox-history-graph", "key": f"{vmid}-{metric_key}"}
     return html.Div(
         className="proxmox-history-chart",
         children=[
@@ -314,13 +310,17 @@ def _build_history_chart(
                 className="proxmox-history-title",
             ),
             dcc.Graph(
-                id=f"proxmox-history-{vmid}-{metric_key}",
+                id=graph_id,
                 figure=fig,
                 className="proxmox-history-figure",
                 config={"displayModeBar": False, "responsive": True},
             ),
         ],
     )
+
+
+def _build_placeholder_cards(count: int = 3, message: str = "Cargando datos de Proxmox...") -> List[html.Div]:
+    return [_build_placeholder_card(message) for _ in range(max(1, count))]
 
 
 def _build_history_cards(vms: List[Dict[str, Any]], history_meta: Dict[str, Any]) -> List[html.Div]:
@@ -601,7 +601,20 @@ def _latest_history_timestamp(history_map: Dict[int, Dict[str, Any]]) -> Optiona
 
 
 def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = None):
-    client = ProxmoxClient(os.getenv("PVE_API_BASE", "http://pve-service:8083"))
+    client = ProxmoxClient(config.PVE_API_BASE)
+
+    selected_view = "history" if _view_pref_to_bool(_default_view_preference()) else "classic"
+    if isinstance(view_toggle_value, bool):
+        selected_view = "history" if view_toggle_value else "classic"
+    elif isinstance(view_toggle_value, str):
+        normalized_view = view_toggle_value.lower()
+        if normalized_view in {"history", "historico"}:
+            selected_view = "history"
+        elif normalized_view in {"classic", "vivo"}:
+            selected_view = "classic"
+    if selected_view not in {"history", "classic"}:
+        selected_view = "history"
+
     try:
         prox = client.get_state()
         update_proxmox_state(prox)
@@ -613,12 +626,15 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
     missing = prox.get("missing") if isinstance(prox, dict) else []
     error = prox.get("error") if isinstance(prox, dict) else None
 
-    try:
-        hist = client.get_history()
-        history_map = hist.get("vms", {}) if isinstance(hist, dict) else {}
-        history_meta = hist.get("meta", {}) if isinstance(hist, dict) else {}
-    except Exception:
-        history_map, history_meta = {}, {}
+    history_map: Dict[str, Any] = {}
+    history_meta: Dict[str, Any] = {}
+    if selected_view == "history":
+        try:
+            hist = client.get_history()
+            history_map = hist.get("vms", {}) if isinstance(hist, dict) else {}
+            history_meta = hist.get("meta", {}) if isinstance(hist, dict) else {}
+        except Exception:
+            history_map, history_meta = {}, {}
     if not isinstance(vms, list):
         vms = []
     for vm in vms:
@@ -655,17 +671,6 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
         if not ts:
             ts = _latest_history_timestamp(history_map)
 
-    selected_view = "history" if _view_pref_to_bool(_default_view_preference()) else "classic"
-    if isinstance(view_toggle_value, bool):
-        selected_view = "history" if view_toggle_value else "classic"
-    elif isinstance(view_toggle_value, str):
-        normalized_view = view_toggle_value.lower()
-        if normalized_view in {"history", "historico"}:
-            selected_view = "history"
-        elif normalized_view in {"classic", "vivo"}:
-            selected_view = "classic"
-    if selected_view not in {"history", "classic"}:
-        selected_view = "history"
     if history_only:
         selected_view = "history"
 
@@ -715,24 +720,33 @@ def _render_proxmox_snapshot(view_toggle_value: Any, logger: Optional[Any] = Non
             )
         status_element = html.Div(status_children)
 
-    return cards, last_update, status_element
+    history_signature = _latest_history_timestamp(history_map) or ""
+    signature = f"{selected_view}|{ts or history_signature or ''}|{history_signature}|{','.join(str(m) for m in sorted(missing)) if missing else ''}|{error or ''}"
+
+    return cards, last_update, status_element, signature
 
 
 
 def get_proxmox_layout() -> html.Div:
-    poll_seconds = int(getattr(config, "PVE_POLL_INTERVAL_SECONDS", 20))
+    poll_seconds = int(config.PVE_POLL_INTERVAL_SECONDS)
     refresh_ms = config.DASH_REFRESH_SECONDS
 
     pref = load_proxmox_view_preference(_default_view_preference())
     update_proxmox_view_preference(pref)
     toggle_history = _view_pref_to_bool(pref)
 
-    initial_cards, initial_last_update, initial_status = _render_proxmox_snapshot(
-        toggle_history
+    global _LAST_PROXMOX_SIGNATURE
+    _LAST_PROXMOX_SIGNATURE = None
+    initial_cards = _build_placeholder_cards()
+    initial_last_update = "Ultima actualizacion: N/D"
+    initial_status = html.Div(
+        "Cargando estado de Proxmox...",
+        style={"color": "#7f8c8d", "fontWeight": "600"},
     )
 
     return html.Div(
         children=[
+            dcc.Store(id="proxmox-zoom-state", data={"locked": False}),
             html.H1("Proxmox", className="main-title"),
             html.Div(
                 id="proxmox-last-update",
@@ -770,6 +784,12 @@ def get_proxmox_layout() -> html.Div:
                 className="proxmox-grid",
                 children=initial_cards,
             ),
+            dcc.Interval(
+                id="proxmox-interval-fast",
+                interval=800,
+                n_intervals=0,
+                max_intervals=1,
+            ),
             dcc.Interval(id="proxmox-interval", interval=refresh_ms, n_intervals=0),
         ]
     )
@@ -777,14 +797,43 @@ def get_proxmox_layout() -> html.Div:
 
 def register_proxmox_callbacks(app: dash.Dash) -> None:
     @app.callback(
+        Output("proxmox-zoom-state", "data"),
+        Input({"type": "proxmox-history-graph", "key": ALL}, "relayoutData"),
+        State("proxmox-zoom-state", "data"),
+        prevent_initial_call=True,
+    )
+    def _sync_zoom_state(relayout_payloads, current_state):
+        if not relayout_payloads:
+            raise PreventUpdate
+        current_state = current_state or {}
+        locked = bool(current_state.get("locked"))
+        new_locked = locked
+        for payload in relayout_payloads:
+            if not payload:
+                continue
+            if payload.get("xaxis.autorange"):
+                new_locked = False
+            elif any(key.startswith("xaxis.range") for key in payload.keys()):
+                new_locked = True
+        if new_locked == locked:
+            raise PreventUpdate
+        return {"locked": new_locked}
+
+    @app.callback(
         Output("proxmox-cards", "children"),
         Output("proxmox-last-update", "children"),
         Output("proxmox-status-message", "children"),
+        Input("proxmox-interval-fast", "n_intervals"),
         Input("proxmox-interval", "n_intervals"),
         Input("proxmox-view-switch", "value"),
-        Input("url", "pathname"),
+        State("proxmox-zoom-state", "data"),
+        prevent_initial_call=True,
     )
-    def update_proxmox_cards(_n: int, view_toggle: Any, _pathname: str):
+    def update_proxmox_cards(_n_fast: int, _n: int, view_toggle: Any, zoom_state: Dict[str, Any]):
+        zoom_locked = bool((zoom_state or {}).get("locked"))
+        if zoom_locked:
+            return dash.no_update, dash.no_update, dash.no_update
+
         current_pref = load_proxmox_view_preference(_default_view_preference())
         desired_pref = current_pref
 
@@ -805,10 +854,16 @@ def register_proxmox_callbacks(app: dash.Dash) -> None:
                 update_proxmox_view_preference(requested)
                 desired_pref = requested
 
-        cards, last_update, status_element = _render_proxmox_snapshot(
+        global _LAST_PROXMOX_SIGNATURE
+        cards, last_update, status_element, signature = _render_proxmox_snapshot(
             _view_pref_to_bool(desired_pref), logger=app.logger
         )
-        return cards, last_update, status_element
+        if _LAST_PROXMOX_SIGNATURE == signature:
+            cards_output = dash.no_update
+        else:
+            _LAST_PROXMOX_SIGNATURE = signature
+            cards_output = cards
+        return cards_output, last_update, status_element
 
 
 

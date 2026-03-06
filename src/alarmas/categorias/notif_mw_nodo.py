@@ -4,7 +4,7 @@ from src.logger import Logosaurio
 from src.utils import timebox
 import config
 
-class NotifNodo:
+class NotifMwNodo:
     def __init__(self, logger: Logosaurio, excluded_grd_ids: set):
         self.logger = logger
         self.individual_grd_alarm_states: Dict[int, Dict[str, Any]] = {}
@@ -29,7 +29,7 @@ class NotifNodo:
             if grd_id in self.individual_grd_alarm_states:
                 self.logger.log(
                     f"Alarma individual para GRD {grd_id} ({self.individual_grd_alarm_states[grd_id]['description']}) resuelta.",
-                    origen="NOTIF/NODO"
+                    origin="NOTIF/NODO"
                 )
                 del self.individual_grd_alarm_states[grd_id]
         
@@ -47,7 +47,7 @@ class NotifNodo:
                     }
                     self.logger.log(
                         f"Alarma potencial: GRD {grd_id} ({grd_description}) desconectado. Iniciando conteo.", 
-                        origen="NOTIF/NODO"
+                        origin="NOTIF/NODO"
                     )
                 else:
                     sustained_duration = timebox.utc_now() - self.individual_grd_alarm_states[grd_id]['start_time']

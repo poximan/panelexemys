@@ -6,4 +6,4 @@ numpy==1.26.4
 paho-mqtt==2.1.0
 requests==2.31.0
 waitress==3.0.0
--e ../timeauthority-pkg
+-e ../shared/timeauthority-pkg
