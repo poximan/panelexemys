@@ -1,127 +1,167 @@
-# ---------------------------------------------------------
-# --- middleware exemys -----------------------------------
-# ---------------------------------------------------------
-MB_HOST = '1.1.1.1'        # IP del servidor Modbus TCP al que te conectaras
-MB_PORT = 5                # Puerto estandar Modbus TCP
-MB_ID = 1                   # ID de la unidad Modbus (esclavo) a consultar
-MB_COUNT = 16                # Numero de words consecutivos a leer
-MB_INTERVAL_SECONDS = 60     # Intervalo de lectura Modbus en segundos
+import os
 
-# Diccionario de equipos GRD, donde la clave es el ID del GRD y el valor es su descripcion
-GRD_DESCRIPTIONS = {
-    1: "descripcion del punto"
-}
+
+def _req(name: str) -> str:
+    v = os.getenv(name)
+    if v is None or not v.strip():
+        raise EnvironmentError(f"Falta variable de entorno obligatoria: {name}")
+    return v.strip()
+
+
+def _req_int(name: str) -> int:
+    return int(_req(name))
+
+
+def _req_float(name: str) -> float:
+    return float(_req(name))
+
+
+def _req_bool(name: str) -> bool:
+    return _req(name).lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_csv_ints(raw: str) -> list[int]:
+    return [int(x.strip()) for x in raw.split(",") if x.strip()]
+
+
+def _req_csv(name: str) -> list[str]:
+    raw = _req(name)
+    items = [x.strip() for x in raw.split(",") if x.strip()]
+    if not items:
+        raise EnvironmentError(f"Falta variable de entorno obligatoria: {name}")
+    return items
+
 
 # ---------------------------------------------------------
-# --- serie transparente ----------------------------------
+# --- Panelexemys (host/puerto) ---------------------------
 # ---------------------------------------------------------
-# Diccionario de equipos conectados via serie transparente
-ESCLAVOS_MB = {
-    1: "descripcion del punto"
-}
+PANELEXEMYS_HOST = _req("PANELEXEMYS_HOST")
+PANELEXEMYS_PORT = _req_int("PANELEXEMYS_PORT")
+PANELEXEMYS_DATA_DIR = _req("PANELEXEMYS_DATA_DIR")
+
+# ---------------------------------------------------------
+# --- Cliente HTTP hacia modbus-mw-service ----------------
+# ---------------------------------------------------------
+MODBUS_MW_API_BASE = _req("MODBUS_MW_API_BASE")
+MODBUS_MW_HTTP_TIMEOUT = _req_int("MODBUS_MW_HTTP_TIMEOUT")
+MODBUS_HTTP_POLL_SECONDS = _req_int("MODBUS_HTTP_POLL_SECONDS")
 
 # ---------------------------------------------------------
 # --- Dashboard (dash_config) -----------------------------
 # ---------------------------------------------------------
-DASHBOARD_REFRESH_INTERVAL_MS = 10 * 1000   # actualizacion del dashboard en milisegundos
-GLOBAL_THRESHOLD_ROJO = 40                  # Porcentaje debajo del cual conectividad "roja" (0-39)
-GLOBAL_THRESHOLD_AMARILLO = 85              # Porcentaje debajo del cual conectividad "amarilla" (40-89)
+PUBLIC_BASE_URL = _req("PUBLIC_BASE_URL").rstrip("/")
+DASH_REFRESH_SECONDS = _req_int("DASH_REFRESH_SECONDS")      # Intervalo unico (ms) para todos los dcc.Interval
+GLOBAL_THRESHOLD_ROJO = _req_int("GLOBAL_THRESHOLD_ROJO")    # Porcentaje debajo del cual conectividad "roja" (0-39)
+GLOBAL_THRESHOLD_AMARILLO = _req_int("GLOBAL_THRESHOLD_AMARILLO")  # Porcentaje debajo del cual conectividad "amarilla" (40-89)
 
 # ---------------------------------------------------------
 # --- Notificador de Alarmas ------------------------------
 # ---------------------------------------------------------
-ALARM_CHECK_INTERVAL_SECONDS = 20              # Intervalo para revisar condicion de alarma
-ALARM_MIN_SUSTAINED_DURATION_MINUTES = 30      # Cuanto debe sostenerse una alarma para enviar email
-ALARM_EMAIL_RECIPIENT = ["miemail@email.com"]
-ALARM_EMAIL_SUBJECT_PREFIX = "[Exemys] "       # Prefijo para el asunto del email
+ALARM_CHECK_INTERVAL_SECONDS = _req_int("ALARM_CHECK_INTERVAL_SECONDS")  # Intervalo para revisar condicion de alarma
+ALARM_MIN_SUSTAINED_DURATION_MINUTES = _req_int("ALARM_MIN_SUSTAINED_DURATION_MINUTES")  # Cuanto debe sostenerse una alarma para enviar email
+ALARM_EMAIL_RECIPIENT = _req_csv("ALARM_EMAIL_RECIPIENT")
+ALARM_EMAIL_SUBJECT_PREFIX = _req("ALARM_EMAIL_SUBJECT_PREFIX")  # Prefijo para el asunto del email
 
 # ---------------------------------------------------------
 # --- Mensagelo (servicio HTTP de mensajeria) -------------
 # ---------------------------------------------------------
 # Parametros de conexion al microservicio mensagelo (reemplaza SMTP local)
-MENSAGELO_BASE_URL = "http://ip:8081"
-MENSAGELO_API_KEY = "miclave"
-MENSAGELO_TIMEOUT_SECONDS = 5
+MENSAGELO_BASE_URL = _req("MENSAGELO_BASE_URL")
+MENSAGELO_TIMEOUT_SECONDS = _req_int("MENSAGELO_TIMEOUT_SECONDS")
+MENSAGELO_API_KEY = _req("MENSAGELO_API_KEY")
 
 # Politica de reintentos con backoff para el enqueue HTTP (send_async)
-MENSAGELO_MAX_RETRIES = 5
-MENSAGELO_BACKOFF_INITIAL = 0.5   # segundos
-MENSAGELO_BACKOFF_MAX = 8.0       # segundos
+MENSAGELO_MAX_RETRIES = _req_int("MENSAGELO_MAX_RETRIES")
+MENSAGELO_BACKOFF_INITIAL = _req_float("MENSAGELO_BACKOFF_INITIAL")   # segundos
+MENSAGELO_BACKOFF_MAX = _req_float("MENSAGELO_BACKOFF_MAX")           # segundos
 
 # ---------------------------------------------------------
 # --- MQTT ------------------------------------------------
 # ---------------------------------------------------------
-MQTT_BROKER_HOST = "hostremoto"
-MQTT_BROKER_PORT = 8883
-MQTT_BROKER_USERNAME = "miusuario"
-MQTT_BROKER_PASSWORD = "micontra"
 
-MQTT_BROKER_KEEPALIVE = 60          # heartbeat con el broker
-MQTT_CONNECT_TIMEOUT = 15           # cuanto esperar la primera confirmacion de conexion
+MQTT_BROKER_HOST = _req("MQTT_BROKER_HOST")
+MQTT_BROKER_PORT = _req_int("MQTT_BROKER_PORT")
+MQTT_BROKER_USERNAME = _req("MQTT_BROKER_USERNAME")
+MQTT_BROKER_PASSWORD = _req("MQTT_BROKER_PASSWORD")
 
-# Reconexion (paho maneja el backoff automaticamente con connect_async + loop_start)
-MQTT_RECONNECT_DELAY_MIN = 5        # backoff minimo entre reintentos
-MQTT_RECONNECT_DELAY_MAX = 60       # backoff maximo entre reintentos
+MQTT_BROKER_KEEPALIVE = _req_int("MQTT_BROKER_KEEPALIVE")   # heartbeat con el broker
+MQTT_CONNECT_TIMEOUT = _req_int("MQTT_CONNECT_TIMEOUT")      # cuanto esperar la primera confirmacion de conexion
 
-# TLS (opcional)
-MQTT_BROKER_USE_TLS = True
-MQTT_BROKER_CA_CERT = None      # None o ruta string a certificado
-MQTT_CLIENT_CERTFILE = None
-MQTT_CLIENT_KEYFILE = None
-MQTT_TLS_INSECURE = False
+# Reconexion
+MQTT_RECONNECT_DELAY_MIN = int(_req("MQTT_RECONNECT_DELAY_MIN"))
+MQTT_RECONNECT_DELAY_MAX = int(_req("MQTT_RECONNECT_DELAY_MAX"))
+
+# TLS
+MQTT_BROKER_USE_TLS = _req_bool("MQTT_BROKER_USE_TLS")
+MQTT_BROKER_CA_CERT = os.getenv("MQTT_BROKER_CA_CERT")
+MQTT_CLIENT_CERTFILE = os.getenv("MQTT_CLIENT_CERTFILE")
+MQTT_CLIENT_KEYFILE = os.getenv("MQTT_CLIENT_KEYFILE")
+MQTT_TLS_INSECURE = _req_bool("MQTT_TLS_INSECURE")
 
 # Presencia del sistema (queda igual, no afecta al movil)
-MQTT_WILL_TOPIC = "topico1/sistema"
-MQTT_WILL_PAYLOAD = "offline"
-MQTT_WILL_QOS = 1
-MQTT_WILL_RETAIN = True
+MQTT_SERVICE_STATUS_TOPIC = _req("MQTT_SERVICE_STATUS_TOPIC")
+MQTT_SERVICE_STATUS_QOS = _req_int("MQTT_SERVICE_STATUS_QOS")
+MQTT_SERVICE_STATUS_RETAIN = _req_bool("MQTT_SERVICE_STATUS_RETAIN")
 
-MQTT_ONLINE_TOPIC = "topico2/sistema"
-MQTT_ONLINE_PAYLOAD = "online"
-MQTT_ONLINE_QOS = 1
-MQTT_ONLINE_RETAIN = True
+MQTT_WILL_TOPIC = MQTT_SERVICE_STATUS_TOPIC
+MQTT_WILL_PAYLOAD = _req("MQTT_WILL_PAYLOAD")
+MQTT_WILL_QOS = MQTT_SERVICE_STATUS_QOS
+MQTT_WILL_RETAIN = MQTT_SERVICE_STATUS_RETAIN
 
-MQTT_OFFLINE_TOPIC = "topico3/sistema"
-MQTT_OFFLINE_PAYLOAD = "offline"
-MQTT_OFFLINE_QOS = 1
-MQTT_OFFLINE_RETAIN = True
+MQTT_ONLINE_TOPIC = MQTT_SERVICE_STATUS_TOPIC
+MQTT_ONLINE_QOS = MQTT_SERVICE_STATUS_QOS
+MQTT_ONLINE_RETAIN = MQTT_SERVICE_STATUS_RETAIN
 
 # -------- LOS 3 TOPICOS EXACTOS QUE USA EL MOVIL ----------
 # (coinciden con tu MqttConfig en Android)
-MQTT_TOPIC_MODEM_CONEXION = "topico/subtopico/conexion_modem"  # payload: {"estado":"conectado"|"desconectado","ts":"..."}
-MQTT_TOPIC_GRADO           = "topico/subtopico/grado"          # payload: {"porcentaje": 58.3, "total": N, "conectados": M, "ts": "..."}
-MQTT_TOPIC_GRDS            = "topico/subtopico/grds"           # payload: {"items":[{"id":11,"nombre":"...","ultima_caida":"..."}], "ts":"..."}
-
+MQTT_TOPIC_MODEM_CONEXION = _req("MQTT_TOPIC_MODEM_CONEXION")  # payload: {"estado":"abierto"|"cerrado"|"desconocido","ts":"..."}
+MQTT_TOPIC_GRADO = _req("MQTT_TOPIC_GRADO")                    # payload: {"porcentaje": 58.3, "total": N, "conectados": M, "ts": "..."}
+MQTT_TOPIC_GRDS = _req("MQTT_TOPIC_GRDS")                      # payload: {"items":[{"id":11,"nombre":"...","ultima_caida":"..."}], "ts":"..."}
+MQTT_TOPIC_EMAIL_ESTADO = _req("MQTT_TOPIC_EMAIL_ESTADO")      # payload: {"smtp":"conectado","ping_local":"desconectado","ping_remoto":"conectado","ts":"..."}
+MQTT_TOPIC_EMAIL_EVENT = _req("MQTT_TOPIC_EMAIL_EVENT")        # payload: {"type":"email","subject":"...","ok":true,"ts":"..."}
+MQTT_TOPIC_PROXMOX_ESTADO = _req("MQTT_TOPIC_PROXMOX_ESTADO")  # payload: {"ts":"...","status":"online|offline","vms":[...],"missing":[...]}
 # QoS/retain por defecto
-MQTT_PUBLISH_QOS_STATE = 1
-MQTT_PUBLISH_RETAIN_STATE = True
+MQTT_PUBLISH_QOS_STATE = _req_int("MQTT_PUBLISH_QOS_STATE")
+MQTT_PUBLISH_RETAIN_STATE = _req_bool("MQTT_PUBLISH_RETAIN_STATE")
+MQTT_PUBLISH_QOS_EVENT = _req_int("MQTT_PUBLISH_QOS_EVENT")
+MQTT_PUBLISH_RETAIN_EVENT = _req_bool("MQTT_PUBLISH_RETAIN_EVENT")
+
+ROUTER_SERVICE_BASE_URL = _req("ROUTER_SERVICE_BASE_URL").rstrip("/")
+ROUTER_CLIENT_TIMEOUT_SECONDS = _req_int("ROUTER_CLIENT_TIMEOUT_SECONDS")
+
+# ---------------------------------------------------------
+# --- charito (frontend + alarmas) ------------------------
+# ---------------------------------------------------------
+CHARITO_API_BASE = _req("CHARITO_API_BASE")
+CHARITO_STALE_THRESHOLD_SECONDS = _req_int("CHARITO_STALE_THRESHOLD_SECONDS")
 
 # ---------------- RPC sobre MQTT (request/response) ----------------------
 # El cliente publica requests en este arbol. El servidor responde SIEMPRE
-# usando alguno de los 3 topicos ya suscritos por el movil (reply_to).
+# usando alguno de los topicos ya suscritos por el movil (reply_to).
 MQTT_RPC_REQ_ROOT = "app/req"        # nos suscribimos a "app/req/#"
 # Acciones soportadas (para validacion/evolucion)
 MQTT_RPC_ALLOWED_ACTIONS = {
     "get_global_status",   # responde en estado/exemys con resumen + ultimos estados por GRD
     "get_modem_status",    # responde en estado/sensor con estado del modem
+    "send_email_test",     # dispara un correo de prueba via mensagelo
 }
 
-# TOPICOS VALIDOS PARA reply_to (solo los 3)
+# TOPICOS VALIDOS PARA reply_to
 MQTT_RPC_ALLOWED_REPLY_TO = {
     MQTT_TOPIC_MODEM_CONEXION,
     MQTT_TOPIC_GRADO,
     MQTT_TOPIC_GRDS,
+    MQTT_TOPIC_EMAIL_EVENT,
 }
 
 # ---------------------------------------------------------
-# --- Base de Datos ---------------------------------------
+# --- Proxmox (PVE) ---------------------------------------
 # ---------------------------------------------------------
-DATABASE_DIR = "data"
-DATABASE_NAME = "basedatos.db"  # Nombre de la base de datos
-
-# ---------------------------------------------------------
-# --- Poblamiento de Datos (bd_poblar) --------------------
-# ---------------------------------------------------------
-POBLAR_BD = False                        # poblar con datos de test
-HISTORICAL_DAYS_TO_GENERATE = 30         # dias a generar desde fecha actual
-HISTORICAL_DATA_INTERVAL_SECONDS = 900   # Intervalo de generacion de datos (en segundos)
+PVE_API_BASE = _req("PVE_API_BASE")
+PVE_NODE_NAME = _req("PVE_NODE_NAME")
+PVE_VHOST_IDS = _parse_csv_ints(_req("PVE_VHOST_IDS"))
+PVE_POLL_INTERVAL_SECONDS = _req_int("PVE_POLL_INTERVAL_SECONDS")
+PVE_HTTP_TIMEOUT_SECONDS = _req_int("PVE_HTTP_TIMEOUT_SECONDS")
+PVE_VERIFY_SSL = _req("PVE_VERIFY_SSL").lower() in {"1", "true", "yes", "on"}
+PVE_HISTORY_HOURS = _req_int("PVE_HISTORY_HOURS")
+PVE_MQTT_PUBLISH_FACTOR = _req_int("PVE_MQTT_PUBLISH_FACTOR")
