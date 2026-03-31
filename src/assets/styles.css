@@ -123,9 +123,9 @@ body.nav-locked {
 .kpi-panel-container {
     display: flex;
     justify-content: space-around;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 30px;
+    align-items: stretch;
+    gap: 16px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
 }
 
@@ -134,8 +134,12 @@ body.nav-locked {
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     /* Sombra mas ligera para los elementos individuales */
-    padding: 20px;
-    text-align: center;    
+    padding: 18px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    box-sizing: border-box;
 }
 
 /* Ajuste de distribucion para KPI Panel: 30% | 10% (15% original -> 10% para cuadrar a 100) | 60% (55% original -> 60%) */
@@ -158,16 +162,18 @@ body.nav-locked {
 
 .kpi-subtitle {
     color: #4a5568;
-    margin-bottom: 15px;
-    font-size: 1.2em;
-    font-weight: 600;
+    margin: 0 0 12px 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.2;
 }
 
 /* Estilos para el semaforo */
 .traffic-light-circles-wrapper {
     display: flex;
     gap: 15px;
-    margin-top: 20px;
+    margin-top: 8px;
     flex-direction: column;
     /* Ya esta en columna, ¡perfecto! */
     align-items: center;
@@ -190,7 +196,7 @@ body.nav-locked {
 .disconnected-table-wrapper {
     max-height: 180px;
     overflow-y: auto;
-    margin-top: 15px;
+    margin-top: 0;
     border: 1px solid #e0e0e0;
     /* Un borde sutil para el wrapper de la tabla */
     border-radius: 5px;
@@ -239,7 +245,57 @@ body.nav-locked {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
+    margin-bottom: 0;
+}
+
+.grd-focus-section {
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 20px;
     margin-bottom: 30px;
+}
+
+.grd-focus-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.grd-focus-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.grd-focus-title {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    line-height: 1.2;
+}
+
+.grd-focus-subtitle {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.grd-focus-dropdown {
+    width: 100%;
+    max-width: 420px;
+    min-width: 300px;
+}
+
+.grd-focus-section .controls-and-graph-container {
+    margin-bottom: 14px;
 }
 
 .controls-panel {
@@ -382,27 +438,74 @@ body.nav-locked {
 }
 
 
-/* --- ESTILOS PARA LA TABLA DE DETALLES (al pie de pagina) --- */
+/* --- ESTILOS PARA EL BLOQUE DE CAIDAS POR GRD (al pie de pagina) --- */
 .grd-data-title {
-    text-align: center;
+    text-align: left;
     color: #2c3e50;
-    margin-top: 40px;
-    margin-bottom: 20px;
-    font-size: 1.8em;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
 }
 
 .grd-table-container {
-    background-color: #ffffff;
+    background-color: #f8fbff;
     border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    padding: 20px;
-    margin-bottom: 30px;
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+    padding: 16px;
+    margin-bottom: 0;
     overflow-x: auto;
 }
 
-.data-table {
+.outages-three-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.outage-item-card {
+    border: 1px solid #dfe6ee;
+    border-radius: 8px;
+    background: #f8fbff;
+    padding: 12px 14px;
+}
+
+.outage-item-title {
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+}
+
+.outage-item-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
     width: 100%;
-    border-collapse: collapse;
+    overflow-x: auto;
+}
+
+.outage-item-inline-text {
+    color: #1f2937;
+    font-weight: 400;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+@media (max-width: 1200px) {
+    .outages-three-columns {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .outages-three-columns {
+        grid-template-columns: 1fr;
+    }
 }
 
 .email-health-grid {
@@ -441,48 +544,6 @@ body.nav-locked {
 
 .email-health-value--bad {
     color: #c62828;
-}
-
-.table-header-cell {
-    background-color: #e9ecef;
-    /* Un color de cabecera mas moderno */
-    padding: 10px 15px;
-    text-align: left;
-    border-bottom: 1px solid #dee2e6;
-    color: #34495e;
-    font-weight: bold;
-}
-
-.table-data-cell,
-.table-data-cell-mono {
-    padding: 10px 15px;
-    border-bottom: 1px solid #f8f9fa;
-    /* Lineas divisorias mas suaves */
-    color: #495057;
-}
-
-.table-data-cell-mono {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-    font-size: 0.9em;
-}
-
-.table-data-cell-status {
-    font-weight: bold;
-    text-align: center;
-    padding: 8px 12px;
-    border-radius: 4px;
-    display: inline-block;
-    min-width: 80px;
-}
-
-.status-connected {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.status-disconnected {
-    background-color: #f8d7da;
-    color: #721c24;
 }
 
 /* ============================================================ */
@@ -1299,6 +1360,74 @@ body.nav-locked {
     background-color: #6c757d;
 }
 
+.sub-title {
+    color: #2c3e50;
+    margin-bottom: 14px;
+}
+
+.telefonos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.telefonos-col,
+.telefonos-general {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 16px 20px;
+}
+
+.telefonos-general {
+    margin-top: 16px;
+}
+
+.telefonos-col-title {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #34495e;
+    font-size: 1.05rem;
+}
+
+.telefonos-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.telefono-comentario {
+    color: #566573;
+    font-style: italic;
+    font-weight: 400;
+}
+
+.port-mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.port-mapping-table th,
+.port-mapping-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e8edf2;
+}
+
+.port-mapping-table thead th {
+    background-color: #e9ecef;
+    color: #34495e;
+    font-weight: 700;
+}
+
 /* --- Responsive Ajustes Generales --- */
 @media (max-width: 1200px) {
     .main-app-container {
@@ -1308,6 +1437,16 @@ body.nav-locked {
 }
 
 @media (max-width: 1024px) {
+    .grd-focus-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .grd-focus-dropdown {
+        max-width: none;
+        min-width: 0;
+    }
+
     .kpi-panel-container {
         flex-direction: column;
     }

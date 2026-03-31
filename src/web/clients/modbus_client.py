@@ -56,6 +56,10 @@ class ModbusMiddlewareHttpClient:
         params = {"grd_id": grd_id, "window": window, "page": page}
         return self._request("GET", "/api/grd/history", params=params)
 
+    def get_outages(self, grd_id: int, limit: int = 10) -> Dict[str, Any]:
+        params = {"grd_id": grd_id, "limit": limit}
+        return self._request("GET", "/api/grd/outages", params=params)
+
     def get_reles_faults(self) -> Dict[str, Any]:
         return self._request("GET", "/api/reles/faults")
 

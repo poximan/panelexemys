@@ -12,6 +12,7 @@ def get_kpi_panel_layout():
     return html.Div(className='kpi-panel-container', children=[
         # Indicador de Aguja (Gauge)
         html.Div(className='kpi-item gauge-graph-container', children=[
+            html.H3("Grado conectividad", className='kpi-subtitle'),
             dcc.Graph(
                 id='connection-gauge',
                 config={'displayModeBar': False},
@@ -78,7 +79,7 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                 mode="gauge+number",
                 value=connection_percentage,
                 domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': "Grado conectividad", 'font': {'size': 20, 'family': 'Inter', 'color': '#4a5568'}},
+                title={'text': ""},
                 number={'suffix': "%", 'font': {'size': 24}},
                 gauge={
                     'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
@@ -99,7 +100,7 @@ def register_kpi_panel_callbacks(app: dash.Dash, config):
                 }
             )
         )
-        gauge_figure.update_layout(height=200, margin={'l': 10, 'r': 10, 't': 40, 'b': 0})
+        gauge_figure.update_layout(height=200, margin={'l': 10, 'r': 10, 't': 8, 'b': 0})
 
         green_style = {'backgroundColor': '#ccc', 'transition': 'background-color 0.5s'}
         yellow_style = {'backgroundColor': '#ccc', 'transition': 'background-color 0.5s'}

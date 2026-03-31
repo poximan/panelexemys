@@ -11,34 +11,20 @@ BUTTON_CLASS_DEFAULT = 'button-default'
 BUTTON_CLASS_ACTIVE = 'button-active'
 STATE_TEXT_MAP = {0: "Desconectado", 1: "Conectado"}
 
-def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
+def get_controls_and_graph_layout():
     """
-    Define el layout para los controles (dropdown, botones de tiempo, paginacion)
+    Define el layout para los controles (botones de tiempo, paginacion)
     y el grafico principal de conexion.
     """
     return html.Div(className='controls-and-graph-container', children=[
-        # Contenedor para Dropdown y Botones de Tiempo/Paginacion
+        # Contenedor para Botones de Tiempo/Paginacion
         html.Div(className='controls-panel', children=[
-            html.Div(className='dropdown-container', children=[
-                html.Label("Seleccionar GRD", className='control-label'),
-                dcc.Dropdown(
-                    id='grd-id-dropdown',
-                    options=[{'label': desc, 'value': _id} for _id, desc in db_grd_descriptions.items()],
-                    value=initial_grd_value,
-                    clearable=False,
-                    placeholder="No hay equipos para seleccionar" if not db_grd_descriptions else "Seleccione un GRD",
-                    className='grd-id-dropdown'
-                ),
-            ]),
             html.Div(className='time-buttons-wrapper-outer', children=[
                 html.Label("Ventana de Datos", className='control-label'),
                 html.Div(className='time-buttons-wrapper-inner', children=[
-                    html.Button('1 Sem', id='1sem-btn', n_clicks=0,
-                                 className=BUTTON_CLASS_ACTIVE if initial_grd_value and '1sem' == '1sem' else BUTTON_CLASS_DEFAULT),
-                    html.Button('1 Mes', id='1mes-btn', n_clicks=0,
-                                 className=BUTTON_CLASS_ACTIVE if initial_grd_value and '1mes' == '1sem' else BUTTON_CLASS_DEFAULT),
-                    html.Button('Todo', id='todo-btn', n_clicks=0,
-                                 className=BUTTON_CLASS_ACTIVE if initial_grd_value and 'todo' == '1sem' else BUTTON_CLASS_DEFAULT),
+                    html.Button('1 Sem', id='1sem-btn', n_clicks=0, className=BUTTON_CLASS_ACTIVE),
+                    html.Button('1 Mes', id='1mes-btn', n_clicks=0, className=BUTTON_CLASS_DEFAULT),
+                    html.Button('Todo', id='todo-btn', n_clicks=0, className=BUTTON_CLASS_DEFAULT),
                 ]),
                 html.Div(id='pagination-controls', className='pagination-controls-container', children=[
                     html.Button('Anterior', id='prev-btn', n_clicks=0, className='pagination-button'),
@@ -49,9 +35,9 @@ def get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value):
 
         # Contenedor para el Grafico Principal
         html.Div(className='main-graph-section', children=[
-            # Mensaje de advertencia si no hay equipos configurados
+            # Mensaje de advertencia para estados sin GRD disponible
             html.Div(id='no-grd-warning', className='no-grd-warning',
-                     children="ADVERTENCIA: No se han encontrado equipos GRD en la base de datos para consulta." if not db_grd_descriptions else ""),
+                     children=""),
             # Grafico principal del estado 'conectado'
             dcc.Graph(
                 id='connected-wave-graph',

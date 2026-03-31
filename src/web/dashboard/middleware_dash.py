@@ -20,7 +20,7 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
             children=[
                 html.Div(
                     className='kpi-item',
-                    style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between', 'width': '100%'},
+                    style={'display': 'flex', 'flexDirection': 'row', 'alignItems': 'center', 'justifyContent': 'space-between', 'width': '100%'},
                     children=[
                         html.P(
                             children=[
@@ -67,8 +67,36 @@ def get_dashboard(db_grd_descriptions, initial_grd_value):
 
         get_kpi_panel_layout(),
         dcc.Store(id='time-window-state', data={'time_window': '1sem', 'page_number': 0, 'current_grd_id': initial_grd_value}),
-        get_controls_and_graph_layout(db_grd_descriptions, initial_grd_value),
-        get_main_data_table_layout(),
+        html.Div(
+            className='grd-focus-section',
+            children=[
+                html.Div(
+                    className='grd-focus-header',
+                    children=[
+                        html.Div(
+                            className='grd-focus-title-block',
+                            children=[
+                                html.H2("Seleccionar GRD", className='grd-focus-title'),
+                                html.P(
+                                    "Los datos del historico y caidas corresponden al GRD seleccionado.",
+                                    className='grd-focus-subtitle',
+                                ),
+                            ],
+                        ),
+                        dcc.Dropdown(
+                            id='grd-id-dropdown',
+                            options=[{'label': desc, 'value': _id} for _id, desc in db_grd_descriptions.items()],
+                            value=initial_grd_value,
+                            clearable=False,
+                            placeholder="No hay equipos para seleccionar" if not db_grd_descriptions else "Seleccione un GRD",
+                            className='grd-focus-dropdown'
+                        ),
+                    ],
+                ),
+                get_controls_and_graph_layout(),
+                get_main_data_table_layout(),
+            ],
+        ),
         dcc.Interval(
             id='interval-component',
             interval=config.DASH_REFRESH_SECONDS,
